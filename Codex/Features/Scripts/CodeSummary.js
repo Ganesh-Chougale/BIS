@@ -36,8 +36,9 @@ const supportedExtensions = {
   ".bat": "batch",
   ".cmd": "batch",
   ".md": "markdown",
-  ".json": "json",       // ✅ Added JSON support
-  ".xml": "xml"          // ✅ Added XML support
+  ".json": "json",
+  ".xml": "xml",
+  ".kt": "kotlin"
 };
 
 // 🔑 Normalize skipLanguages so it can take both extensions (.css) or language names (css)
@@ -76,7 +77,7 @@ function stripComments(content, lang) {
       return content.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//gm, "");
     case "python": case "ruby": case "bash": case "shell": case "dockerfile":
       return content.replace(/#.*$/gm, "");
-    case "html": case "xml": case "vue": case "svelte":      // ✅ XML support here
+    case "html": case "xml": case "vue": case "svelte":
       return content.replace(/<!--[\s\S]*?-->/gm, "");
     case "css": case "scss": case "less":
       return content.replace(/\/\*[\s\S]*?\*\//gm, "");
@@ -84,8 +85,8 @@ function stripComments(content, lang) {
       return content.replace(/^\s*#.*/gm, "");
     case "sql":
       return content.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//gm, "");
-    case "json":                                       // ✅ JSON support here
-      return content;
+    case "kotlin":  // <-- Explicitly handle Kotlin if you want
+      return content.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//gm, "");
     default:
       return content;
   }

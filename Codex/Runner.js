@@ -5,7 +5,7 @@ const path = require("path");
 // ✅ Switches
 const config = {
   runCodeSummary: true,
-  runFolderStructurer: true,
+  runFolderStructurer: false,
   runFixedText: false,
   runTriedSolutions: false,
   runFinalInstruction: false,

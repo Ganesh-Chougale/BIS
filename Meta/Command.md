@@ -1,6 +1,6 @@
 ### Summary  
 ```bash
-node Codex/Runner.js "App"
+node Codex/Runner.js "BIS"
 ```  
 ### Git Pushes
 ```bash
