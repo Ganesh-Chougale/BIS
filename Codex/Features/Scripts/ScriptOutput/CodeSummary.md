@@ -92,6 +92,7 @@ import android.graphics.PixelFormat
 import android.os.IBinder
 import android.view.*
 import android.widget.ImageView
+import android.widget.Toast
 class OverlayService : Service() {
     private lateinit var windowManager: WindowManager
     private lateinit var floatView: ImageView
@@ -109,7 +110,8 @@ class OverlayService : Service() {
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             else
                 WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
             PixelFormat.TRANSLUCENT
         )
         params.gravity = Gravity.START or Gravity.TOP
@@ -122,35 +124,44 @@ class OverlayService : Service() {
         if (::floatView.isInitialized) windowManager.removeView(floatView)
     }
     override fun onBind(intent: Intent?): IBinder? = null
-    inner class FloatingTouchListener : View.OnTouchListener {
-        private var initialX = 0
-        private var initialY = 0
-        private var initialTouchX = 0f
-        private var initialTouchY = 0f
-        override fun onTouch(v: View?, event: MotionEvent): Boolean {
-            val params = floatView.layoutParams as WindowManager.LayoutParams
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    initialX = params.x
-                    initialY = params.y
-                    initialTouchX = event.rawX
-                    initialTouchY = event.rawY
-                    return true
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    params.x = initialX + (event.rawX - initialTouchX).toInt()
-                    params.y = initialY + (event.rawY - initialTouchY).toInt()
-                    windowManager.updateViewLayout(floatView, params)
-                    return true
-                }
-                MotionEvent.ACTION_UP -> {
-                    // TODO: toggle magnifier in next phase
-                    return true
-                }
+inner class FloatingTouchListener : View.OnTouchListener {
+    private var initialX = 0
+    private var initialY = 0
+    private var initialTouchX = 0f
+    private var initialTouchY = 0f
+    private val clickThreshold = 20 // increased tolerance
+    override fun onTouch(v: View?, event: MotionEvent): Boolean {
+        val params = floatView.layoutParams as WindowManager.LayoutParams
+        when (event.action) {
+            MotionEvent.ACTION_DOWN -> {
+                initialX = params.x
+                initialY = params.y
+                initialTouchX = event.rawX
+                initialTouchY = event.rawY
+                return true
             }
-            return false
+            MotionEvent.ACTION_MOVE -> {
+                val deltaX = (event.rawX - initialTouchX).toInt()
+                val deltaY = (event.rawY - initialTouchY).toInt()
+                if (Math.abs(deltaX) > clickThreshold || Math.abs(deltaY) > clickThreshold) {
+                    params.x = initialX + deltaX
+                    params.y = initialY + deltaY
+                    windowManager.updateViewLayout(floatView, params)
+                }
+                return true
+            }
+            MotionEvent.ACTION_UP -> {
+                val deltaX = Math.abs(event.rawX - initialTouchX)
+                val deltaY = Math.abs(event.rawY - initialTouchY)
+                if (deltaX < clickThreshold && deltaY < clickThreshold) {
+                    Toast.makeText(this@OverlayService, "Tapped!", Toast.LENGTH_SHORT).show()
+                }
+                return true
+            }
         }
+        return false
     }
+}
 }
 ```
 
