@@ -32,6 +32,7 @@ class ScreenCaptureManager(
     private val handler = Handler(Looper.getMainLooper())
     
     private var isCapturing = false
+    private var frameCount = 0
     
     /**
      * Start screen capture with the given permission result
@@ -90,13 +91,16 @@ class ScreenCaptureManager(
                 val fullBitmap = imageToBitmap(image)
                 
                 // Capture exactly what's inside the input selector
-                val startX = config.inputPosition.x.coerceAtLeast(0)
-                val startY = config.inputPosition.y.coerceAtLeast(0)
+                val startX = config.inputX.coerceAtLeast(0)
+                val startY = config.inputY.coerceAtLeast(0)
                 val cropWidth = config.inputSize.coerceAtMost(fullBitmap.width - startX)
                 val cropHeight = config.inputSize.coerceAtMost(fullBitmap.height - startY)
                 
-                Log.d(TAG, "Capturing from input selector")
-                Log.d(TAG, "Position: ($startX, $startY), Size: ${cropWidth}x${cropHeight}")
+                // Log every 60 frames to verify capture is running
+                frameCount++
+                if (frameCount % 60 == 0) {
+                    Log.d(TAG, "Frame $frameCount - Position: ($startX, $startY), Size: ${cropWidth}x${cropHeight}")
+                }
                 
                 // Crop the selected area
                 val croppedBitmap = Bitmap.createBitmap(
@@ -107,15 +111,12 @@ class ScreenCaptureManager(
                     cropHeight
                 )
                 
-                // Fixed output window size
-                val outputWindowSize = 500
-                
                 // Scale the cropped bitmap to fill the output window
                 // This creates the magnification effect
                 val magnifiedBitmap = Bitmap.createScaledBitmap(
                     croppedBitmap,
-                    outputWindowSize,
-                    outputWindowSize,
+                    config.outputSize,
+                    config.outputSize,
                     true
                 )
                 

@@ -90,7 +90,7 @@ class OutputWindowOverlay(
      * Create the overlay view
      */
     private fun createView() {
-        val outputSize = 500  // Fixed output window size
+        val outputSize = config.outputSize
         
         overlayView = FrameLayout(context).apply {
             layoutParams = ViewGroup.LayoutParams(outputSize, outputSize)
@@ -127,7 +127,10 @@ class OutputWindowOverlay(
             }
             addView(magnifierImageView)
             
-            setOnTouchListener(TouchListener())
+            // Only enable dragging if configured
+            if (config.isOutputDraggable) {
+                setOnTouchListener(TouchListener())
+            }
         }
         
         // Window layout parameters

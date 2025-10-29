@@ -22,9 +22,27 @@ class MainActivity : AppCompatActivity() {
     private lateinit var circleRadio: RadioButton
     private lateinit var sizeSeekBar: SeekBar
     private lateinit var sizeLabel: TextView
+    private lateinit var outputSizeSeekBar: SeekBar
+    private lateinit var outputSizeLabel: TextView
+    private lateinit var inputDraggableSwitch: Switch
+    private lateinit var outputDraggableSwitch: Switch
+    private lateinit var crosshairSwitch: Switch
+    private lateinit var zoomSliderSwitch: Switch
+    private lateinit var minZoomSeekBar: SeekBar
+    private lateinit var minZoomLabel: TextView
+    private lateinit var maxZoomSeekBar: SeekBar
+    private lateinit var maxZoomLabel: TextView
+    private lateinit var zoomRangeContainer: LinearLayout
     
     private var selectedShape = MagnifierShape.SQUARE
     private var selectedSize = 200
+    private var selectedOutputSize = 500
+    private var isInputDraggable = false
+    private var isOutputDraggable = true
+    private var showCrosshair = false
+    private var showZoomSlider = false
+    private var minZoom = 1.5f
+    private var maxZoom = 6.0f
     
     companion object {
         private const val REQUEST_MEDIA_PROJECTION = 1001
@@ -95,6 +113,167 @@ class MainActivity : AppCompatActivity() {
         }
         layout.addView(sizeSeekBar)
         
+        // Output size selector section
+        outputSizeLabel = TextView(this).apply {
+            text = "Output Size: 500px"
+            textSize = 16f
+            setPadding(0, 24, 0, 8)
+        }
+        layout.addView(outputSizeLabel)
+        
+        outputSizeSeekBar = SeekBar(this).apply {
+            max = 700  // 300 to 1000 (we'll add 300 to the value)
+            progress = 200  // Default 500px
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    selectedOutputSize = progress + 300
+                    outputSizeLabel.text = "Output Size: ${selectedOutputSize}px"
+                }
+                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+            })
+        }
+        layout.addView(outputSizeSeekBar)
+        
+        // Input window draggable toggle
+        val inputDraggableLabel = TextView(this).apply {
+            text = "Input Window Draggable:"
+            textSize = 16f
+            setPadding(0, 24, 0, 8)
+        }
+        layout.addView(inputDraggableLabel)
+        
+        inputDraggableSwitch = Switch(this).apply {
+            isChecked = false  // Default OFF
+            text = if (isChecked) "ON" else "OFF"
+            setOnCheckedChangeListener { _, isChecked ->
+                isInputDraggable = isChecked
+                text = if (isChecked) "ON" else "OFF"
+            }
+        }
+        layout.addView(inputDraggableSwitch)
+        
+        // Output window draggable toggle
+        val outputDraggableLabel = TextView(this).apply {
+            text = "Output Window Draggable:"
+            textSize = 16f
+            setPadding(0, 24, 0, 8)
+        }
+        layout.addView(outputDraggableLabel)
+        
+        outputDraggableSwitch = Switch(this).apply {
+            isChecked = true  // Default ON
+            text = if (isChecked) "ON" else "OFF"
+            setOnCheckedChangeListener { _, isChecked ->
+                isOutputDraggable = isChecked
+                text = if (isChecked) "ON" else "OFF"
+            }
+        }
+        layout.addView(outputDraggableSwitch)
+        
+        // Crosshair toggle
+        val crosshairLabel = TextView(this).apply {
+            text = "Show Crosshair in Input:"
+            textSize = 16f
+            setPadding(0, 24, 0, 8)
+        }
+        layout.addView(crosshairLabel)
+        
+        crosshairSwitch = Switch(this).apply {
+            isChecked = false  // Default OFF
+            text = if (isChecked) "ON" else "OFF"
+            setOnCheckedChangeListener { _, isChecked ->
+                showCrosshair = isChecked
+                text = if (isChecked) "ON" else "OFF"
+            }
+        }
+        layout.addView(crosshairSwitch)
+        
+        // Zoom slider toggle
+        val zoomSliderLabel = TextView(this).apply {
+            text = "Show Zoom Slider:"
+            textSize = 16f
+            setPadding(0, 24, 0, 8)
+        }
+        layout.addView(zoomSliderLabel)
+        
+        zoomSliderSwitch = Switch(this).apply {
+            isChecked = false  // Default OFF
+            text = if (isChecked) "ON" else "OFF"
+            setOnCheckedChangeListener { _, isChecked ->
+                showZoomSlider = isChecked
+                text = if (isChecked) "ON" else "OFF"
+                // Show/hide zoom range controls
+                zoomRangeContainer.visibility = if (isChecked) View.VISIBLE else View.GONE
+            }
+        }
+        layout.addView(zoomSliderSwitch)
+        
+        // Zoom range container (initially hidden)
+        zoomRangeContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE  // Hidden by default
+        }
+        
+        // Minimum zoom selector
+        minZoomLabel = TextView(this).apply {
+            text = "Minimum Zoom: 1.5x"
+            textSize = 16f
+            setPadding(0, 24, 0, 8)
+        }
+        zoomRangeContainer.addView(minZoomLabel)
+        
+        minZoomSeekBar = SeekBar(this).apply {
+            max = 20  // 1.0x to 3.0x in 0.1 steps (20 steps)
+            progress = 5  // Default 1.5x (1.0 + 0.5 = 1.5)
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    minZoom = 1.0f + (progress * 0.1f)
+                    minZoomLabel.text = String.format("Minimum Zoom: %.1fx", minZoom)
+                    // Ensure min is always less than max
+                    if (minZoom >= maxZoom) {
+                        maxZoom = minZoom + 0.5f
+                        maxZoomSeekBar.progress = ((maxZoom - 3.0f) / 0.1f).toInt()
+                        maxZoomLabel.text = String.format("Maximum Zoom: %.1fx", maxZoom)
+                    }
+                }
+                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+            })
+        }
+        zoomRangeContainer.addView(minZoomSeekBar)
+        
+        // Maximum zoom selector
+        maxZoomLabel = TextView(this).apply {
+            text = "Maximum Zoom: 6.0x"
+            textSize = 16f
+            setPadding(0, 24, 0, 8)
+        }
+        zoomRangeContainer.addView(maxZoomLabel)
+        
+        maxZoomSeekBar = SeekBar(this).apply {
+            max = 70  // 3.0x to 10.0x in 0.1 steps (70 steps)
+            progress = 30  // Default 6.0x (3.0 + 3.0 = 6.0)
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    maxZoom = 3.0f + (progress * 0.1f)
+                    maxZoomLabel.text = String.format("Maximum Zoom: %.1fx", maxZoom)
+                    // Ensure max is always greater than min
+                    if (maxZoom <= minZoom) {
+                        minZoom = maxZoom - 0.5f
+                        minZoomSeekBar.progress = ((minZoom - 1.0f) / 0.1f).toInt()
+                        minZoomLabel.text = String.format("Minimum Zoom: %.1fx", minZoom)
+                    }
+                }
+                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+            })
+        }
+        zoomRangeContainer.addView(maxZoomSeekBar)
+        
+        // Add zoom range container to main layout
+        layout.addView(zoomRangeContainer)
+        
         // Toggle button
         toggleButton = Button(this).apply {
             text = "Start Magnifier"
@@ -161,6 +340,13 @@ class MainActivity : AppCompatActivity() {
                     // Pass shape and size configuration
                     putExtra("SHAPE", selectedShape.name)
                     putExtra("INPUT_SIZE", selectedSize)
+                    putExtra("OUTPUT_SIZE", selectedOutputSize)
+                    putExtra("INPUT_DRAGGABLE", isInputDraggable)
+                    putExtra("OUTPUT_DRAGGABLE", isOutputDraggable)
+                    putExtra("SHOW_CROSSHAIR", showCrosshair)
+                    putExtra("SHOW_ZOOM_SLIDER", showZoomSlider)
+                    putExtra("MIN_ZOOM", minZoom)
+                    putExtra("MAX_ZOOM", maxZoom)
                 }
                 startService(captureIntent)
                 

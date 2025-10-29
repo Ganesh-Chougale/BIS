@@ -94,10 +94,15 @@ class InputSelectorOverlay(
             }
             background = drawable
             
-            // Add crosshair in center (for better targeting)
-            addCrosshair(this)
+            // Add crosshair in center (for better targeting) if enabled
+            if (config.showCrosshair) {
+                addCrosshair(this)
+            }
             
-            setOnTouchListener(TouchListener())
+            // Only enable dragging if configured
+            if (config.isInputDraggable) {
+                setOnTouchListener(TouchListener())
+            }
         }
         
         // Window layout parameters
@@ -111,13 +116,13 @@ class InputSelectorOverlay(
             gravity = Gravity.TOP or Gravity.START
             
             // Set initial position from config or center of screen
-            if (config.inputPosition.x == 0 && config.inputPosition.y == 0) {
-                config.inputPosition.x = config.screenWidth / 2 - config.inputSize / 2
-                config.inputPosition.y = config.screenHeight / 2 - config.inputSize / 2
+            if (config.inputX == 0 && config.inputY == 0) {
+                config.inputX = config.screenWidth / 2 - config.inputSize / 2
+                config.inputY = config.screenHeight / 2 - config.inputSize / 2
             }
             
-            x = config.inputPosition.x
-            y = config.inputPosition.y
+            x = config.inputX
+            y = config.inputY
         }
     }
     
@@ -155,9 +160,9 @@ class InputSelectorOverlay(
                     val newX = initialX + (event.rawX - initialTouchX).toInt()
                     val newY = initialY + (event.rawY - initialTouchY).toInt()
                     
-                    // Update config
-                    config.inputPosition.x = newX
-                    config.inputPosition.y = newY
+                    // Update config directly
+                    config.inputX = newX
+                    config.inputY = newY
                     
                     // Update view position
                     layoutParams.x = newX

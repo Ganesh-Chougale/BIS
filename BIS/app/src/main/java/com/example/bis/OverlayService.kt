@@ -13,6 +13,9 @@ import android.util.DisplayMetrics
 import android.util.Log
 import android.view.WindowManager
 import android.widget.Toast
+import com.example.bis.slider.Slider
+import com.example.bis.slider.SliderFactory
+import com.example.bis.slider.model.SliderConfig
 
 class OverlayService : Service() {
 
@@ -40,7 +43,7 @@ class OverlayService : Service() {
     private lateinit var inputSelectorOverlay: InputSelectorOverlay
     private lateinit var outputWindowOverlay: OutputWindowOverlay
     private lateinit var toggleWidgetOverlay: ToggleWidgetOverlay
-    private lateinit var verticalZoomSlider: VerticalZoomSlider
+    private lateinit var zoomSlider: Slider
 
     override fun onCreate() {
         super.onCreate()
@@ -99,18 +102,24 @@ class OverlayService : Service() {
                 windowManager = windowManager,
                 onToggleClick = { toggleMagnification() }
             )
-            verticalZoomSlider = VerticalZoomSlider(
+            // Create slider configuration
+            val sliderConfig = createSliderConfig()
+            
+            zoomSlider = SliderFactory.createSlider(
                 context = this,
-                config = config,
+                config = sliderConfig,
                 windowManager = windowManager,
-                onZoomChanged = { onZoomChanged() }
+                onZoomChanged = { newZoom ->
+                    config.setZoom(newZoom)
+                    onZoomChanged()
+                }
             )
             
             // Show all overlays
             inputSelectorOverlay.show()
             outputWindowOverlay.show()
             toggleWidgetOverlay.show()
-            verticalZoomSlider.show()
+            zoomSlider.show()
             
             Log.d(TAG, "All overlays created successfully")
             Toast.makeText(this, "Magnifier ready!", Toast.LENGTH_SHORT).show()
@@ -127,11 +136,13 @@ class OverlayService : Service() {
         if (config.isMagnifying) {
             inputSelectorOverlay.reveal()
             outputWindowOverlay.reveal()
-            verticalZoomSlider.reveal()
+            // Only show slider if it was enabled in settings
+            // Note: We need to track showZoomSlider setting, for now always show when magnifying
+            zoomSlider.setVisibility(true)
         } else {
             inputSelectorOverlay.hide()
             outputWindowOverlay.hide()
-            verticalZoomSlider.hide()
+            zoomSlider.setVisibility(false)
         }
         
         toggleWidgetOverlay.updateIcon(config.isMagnifying)
@@ -152,9 +163,31 @@ class OverlayService : Service() {
      */
     private fun onOutputPositionChanged() {
         // Update slider position to follow output window
-        if (::verticalZoomSlider.isInitialized) {
-            verticalZoomSlider.updatePosition()
+        if (::zoomSlider.isInitialized && zoomSlider.isAttached()) {
+            Log.d(TAG, "Output position changed to: (${config.outputPosition.x}, ${config.outputPosition.y})")
+            zoomSlider.updateConfig(createSliderConfig())
         }
+    }
+    
+    /**
+     * Helper method to create SliderConfig from current MagnifierConfig
+     */
+    private fun createSliderConfig(): SliderConfig {
+        return SliderConfig(
+            windowWidth = config.outputSize,
+            windowHeight = config.outputSize,
+            screenWidth = config.screenWidth,
+            screenHeight = config.screenHeight,
+            windowX = config.outputPosition.x,
+            windowY = config.outputPosition.y,
+            minZoom = config.minZoom,
+            maxZoom = config.maxZoom,
+            initialZoom = config.zoomFactor,
+            shape = when (config.shape) {
+                MagnifierShape.CIRCLE -> SliderConfig.Shape.CIRCLE
+                MagnifierShape.SQUARE -> SliderConfig.Shape.SQUARE
+            }
+        )
     }
     
     
@@ -183,12 +216,25 @@ class OverlayService : Service() {
                 // Get shape and size configuration from intent
                 val shapeName = intent.getStringExtra("SHAPE") ?: MagnifierShape.SQUARE.name
                 val inputSize = intent.getIntExtra("INPUT_SIZE", 200)
-                val maxZoom = intent.getFloatExtra("MAX_ZOOM", 10.0f)
+                val outputSize = intent.getIntExtra("OUTPUT_SIZE", 500)
+                val minZoom = intent.getFloatExtra("MIN_ZOOM", 1.5f)
+                val maxZoom = intent.getFloatExtra("MAX_ZOOM", 6.0f)
+                val isInputDraggable = intent.getBooleanExtra("INPUT_DRAGGABLE", false)
+                val isOutputDraggable = intent.getBooleanExtra("OUTPUT_DRAGGABLE", true)
+                val showCrosshair = intent.getBooleanExtra("SHOW_CROSSHAIR", false)
+                val showZoomSlider = intent.getBooleanExtra("SHOW_ZOOM_SLIDER", false)
                 
                 // Apply configuration
                 config.shape = MagnifierShape.valueOf(shapeName)
                 config.inputSize = inputSize
+                config.outputSize = outputSize
+                config.setZoom(minZoom)  // Set initial zoom to min
+                // Update min/max zoom range (need to modify MagnifierConfig to allow setting minZoom)
                 config.maxZoom = maxZoom
+                config.minZoom = minZoom
+                config.isInputDraggable = isInputDraggable
+                config.isOutputDraggable = isOutputDraggable
+                config.showCrosshair = showCrosshair
                 
                 // Set initial positions BEFORE creating overlays
                 if (config.inputX == 0 && config.inputY == 0) {
@@ -211,8 +257,10 @@ class OverlayService : Service() {
                 if (!::inputSelectorOverlay.isInitialized) {
                     Log.d(TAG, "Creating overlays...")
                     createOverlays()
-                    // Update slider position after overlays are created
-                    verticalZoomSlider.updatePosition()
+                    // Update slider position and visibility after overlays are created
+                    onOutputPositionChanged()
+                    // Set slider visibility based on configuration
+                    zoomSlider.setVisibility(showZoomSlider && config.isMagnifying)
                 } else {
                     Log.d(TAG, "Overlays already exist")
                 }
@@ -271,8 +319,8 @@ class OverlayService : Service() {
         if (::toggleWidgetOverlay.isInitialized) {
             toggleWidgetOverlay.remove()
         }
-        if (::verticalZoomSlider.isInitialized) {
-            verticalZoomSlider.remove()
+        if (::zoomSlider.isInitialized) {
+            zoomSlider.remove()
         }
         
         Log.d(TAG, "Service destroyed")

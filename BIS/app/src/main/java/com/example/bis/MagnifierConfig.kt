@@ -27,9 +27,9 @@ data class MagnifierConfig(
     var outputSize: Int = 500,
     var outputPosition: Point = Point(0, 0),  // Will be set in OverlayService
     
-    // Zoom settings
-    var zoomFactor: Float = 2.5f,
-    val minZoom: Float = 1.5f,
+    // Zoom settings (default 2.5x, min 1.5x, max 10.0x)
+    var zoomFactor: Float = 2.5f,  // Default zoom, must be >= minZoom (1.5x)
+    var minZoom: Float = 1.5f,
     var maxZoom: Float = 10.0f,
     
     // Toggle widget position
@@ -37,6 +37,13 @@ data class MagnifierConfig(
     
     // State
     var isMagnifying: Boolean = true,
+    
+    // Draggable flags
+    var isInputDraggable: Boolean = false,
+    var isOutputDraggable: Boolean = true,
+    
+    // Display flags
+    var showCrosshair: Boolean = false,
     
     // Screen properties (set at runtime)
     var screenWidth: Int = 0,
