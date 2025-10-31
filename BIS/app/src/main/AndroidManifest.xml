@@ -21,6 +21,11 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".AboutActivity"
+            android:exported="false"
+            android:theme="@style/Theme.BIS" />
+
         <service
             android:name=".OverlayService"
             android:exported="false"

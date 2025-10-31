@@ -2,11 +2,15 @@ package com.example.bis
 
 import android.app.Activity
 import android.content.Intent
+import android.graphics.Color
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
+import android.view.Gravity
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
@@ -43,6 +47,7 @@ class MainActivity : AppCompatActivity() {
     private var showZoomSlider = false
     private var minZoom = 1.5f
     private var maxZoom = 6.0f
+    private var crosshairColor = Color.BLACK
     
     companion object {
         private const val REQUEST_MEDIA_PROJECTION = 1001
@@ -53,9 +58,15 @@ class MainActivity : AppCompatActivity() {
         
         mediaProjectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         
+        // Create main content layout
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(32, 32, 32, 32)
+        }
+        
+        // Wrap in ScrollView for landscape mode
+        val scrollView = ScrollView(this).apply {
+            addView(layout)
         }
         
         // Shape selector section
@@ -278,7 +289,16 @@ class MainActivity : AppCompatActivity() {
         toggleButton = Button(this).apply {
             text = "Start Magnifier"
             textSize = 18f
-            setPadding(0, 32, 0, 0)
+            gravity = Gravity.CENTER
+            setBackgroundColor(Color.parseColor("#4CAF50")) // Green
+            setTextColor(Color.WHITE)
+            setPadding(32, 32, 32, 32)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, 32, 0, 0)
+            }
             setOnClickListener {
                 if (Settings.canDrawOverlays(this@MainActivity)) {
                     toggleService()
@@ -289,7 +309,52 @@ class MainActivity : AppCompatActivity() {
         }
         layout.addView(toggleButton)
         
-        setContentView(layout)
+        // About button
+        val aboutButton = Button(this).apply {
+            text = "About"
+            textSize = 16f
+            gravity = Gravity.CENTER
+            setBackgroundColor(Color.parseColor("#2196F3")) // Blue
+            setTextColor(Color.WHITE)
+            setPadding(32, 24, 32, 24)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, 16, 0, 0)
+            }
+            setOnClickListener {
+                startActivity(Intent(this@MainActivity, AboutActivity::class.java))
+            }
+        }
+        layout.addView(aboutButton)
+        
+        // Exit App button
+        val exitButton = Button(this).apply {
+            text = "Exit App"
+            textSize = 16f
+            gravity = Gravity.CENTER
+            setBackgroundColor(Color.parseColor("#F44336")) // Red
+            setTextColor(Color.WHITE)
+            setPadding(32, 24, 32, 24)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, 16, 0, 32)
+            }
+            setOnClickListener {
+                // Stop the service if running
+                if (isServiceRunning) {
+                    stopService(Intent(this@MainActivity, OverlayService::class.java))
+                }
+                // Close the app
+                finishAffinity()
+            }
+        }
+        layout.addView(exitButton)
+        
+        setContentView(scrollView)
     }
     
     private fun toggleService() {
@@ -344,6 +409,7 @@ class MainActivity : AppCompatActivity() {
                     putExtra("INPUT_DRAGGABLE", isInputDraggable)
                     putExtra("OUTPUT_DRAGGABLE", isOutputDraggable)
                     putExtra("SHOW_CROSSHAIR", showCrosshair)
+                    putExtra("CROSSHAIR_COLOR", crosshairColor)
                     putExtra("SHOW_ZOOM_SLIDER", showZoomSlider)
                     putExtra("MIN_ZOOM", minZoom)
                     putExtra("MAX_ZOOM", maxZoom)
@@ -356,6 +422,21 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Permission denied", Toast.LENGTH_SHORT).show()
                 toggleButton.text = "Start Magnifier"
             }
+        }
+    }
+    
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.main_menu, menu)
+        return true
+    }
+    
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_about -> {
+                startActivity(Intent(this, AboutActivity::class.java))
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
         }
     }
 }

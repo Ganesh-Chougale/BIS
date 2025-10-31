@@ -16,6 +16,7 @@ import android.widget.Toast
 import com.example.bis.slider.Slider
 import com.example.bis.slider.SliderFactory
 import com.example.bis.slider.model.SliderConfig
+import com.example.bis.slider.shape.SquareSlider
 
 class OverlayService : Service() {
 
@@ -94,7 +95,8 @@ class OverlayService : Service() {
                 context = this,
                 config = config,
                 windowManager = windowManager,
-                onPositionChanged = { onOutputPositionChanged() }
+                onPositionChanged = { onOutputPositionChanged() },
+                onTouched = { onOutputWindowTouched() }
             )
             toggleWidgetOverlay = ToggleWidgetOverlay(
                 context = this,
@@ -136,9 +138,8 @@ class OverlayService : Service() {
         if (config.isMagnifying) {
             inputSelectorOverlay.reveal()
             outputWindowOverlay.reveal()
-            // Only show slider if it was enabled in settings
-            // Note: We need to track showZoomSlider setting, for now always show when magnifying
-            zoomSlider.setVisibility(true)
+            // Don't show slider automatically - wait for user to touch output window
+            zoomSlider.setVisibility(false)
         } else {
             inputSelectorOverlay.hide()
             outputWindowOverlay.hide()
@@ -166,6 +167,17 @@ class OverlayService : Service() {
         if (::zoomSlider.isInitialized && zoomSlider.isAttached()) {
             Log.d(TAG, "Output position changed to: (${config.outputPosition.x}, ${config.outputPosition.y})")
             zoomSlider.updateConfig(createSliderConfig())
+        }
+    }
+    
+    /**
+     * Called when output window is touched
+     */
+    private fun onOutputWindowTouched() {
+        if (config.isMagnifying && ::zoomSlider.isInitialized) {
+            // Show slider with auto-hide timeout
+            (zoomSlider as? SquareSlider)?.showWithTimeout()
+            Log.d(TAG, "Output window touched - showing slider with timeout")
         }
     }
     
@@ -222,6 +234,7 @@ class OverlayService : Service() {
                 val isInputDraggable = intent.getBooleanExtra("INPUT_DRAGGABLE", false)
                 val isOutputDraggable = intent.getBooleanExtra("OUTPUT_DRAGGABLE", true)
                 val showCrosshair = intent.getBooleanExtra("SHOW_CROSSHAIR", false)
+                val crosshairColor = intent.getIntExtra("CROSSHAIR_COLOR", android.graphics.Color.BLACK)
                 val showZoomSlider = intent.getBooleanExtra("SHOW_ZOOM_SLIDER", false)
                 
                 // Apply configuration
@@ -235,6 +248,7 @@ class OverlayService : Service() {
                 config.isInputDraggable = isInputDraggable
                 config.isOutputDraggable = isOutputDraggable
                 config.showCrosshair = showCrosshair
+                config.crosshairColor = crosshairColor
                 
                 // Set initial positions BEFORE creating overlays
                 if (config.inputX == 0 && config.inputY == 0) {
@@ -257,10 +271,10 @@ class OverlayService : Service() {
                 if (!::inputSelectorOverlay.isInitialized) {
                     Log.d(TAG, "Creating overlays...")
                     createOverlays()
-                    // Update slider position and visibility after overlays are created
+                    // Update slider position after overlays are created
                     onOutputPositionChanged()
-                    // Set slider visibility based on configuration
-                    zoomSlider.setVisibility(showZoomSlider && config.isMagnifying)
+                    // Start with slider hidden - it will show when user touches output window
+                    zoomSlider.setVisibility(false)
                 } else {
                     Log.d(TAG, "Overlays already exist")
                 }

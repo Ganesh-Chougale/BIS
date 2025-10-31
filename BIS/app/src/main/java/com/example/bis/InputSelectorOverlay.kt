@@ -84,8 +84,8 @@ class InputSelectorOverlay(
             
             // Green border with semi-transparent fill
             val drawable = GradientDrawable().apply {
-                setStroke(8, Color.parseColor("#4CAF50"))
-                setColor(Color.parseColor("#204CAF50")) // 20% opacity green
+                // setStroke(8, Color.parseColor("#4CAF50"))
+                // setColor(Color.parseColor("#204CAF50")) // 20% opacity green
                 
                 // Make it circular if shape is CIRCLE
                 if (config.shape == MagnifierShape.CIRCLE) {
@@ -131,9 +131,9 @@ class InputSelectorOverlay(
      */
     private fun addCrosshair(parent: FrameLayout) {
         val crosshair = TextView(context).apply {
-            text = "+"
-            textSize = 24f
-            setTextColor(Color.parseColor("#4CAF50"))
+            text = "x"
+            textSize = 32f  // Slightly larger for better visibility
+            setTextColor(config.crosshairColor)
             gravity = Gravity.CENTER
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,

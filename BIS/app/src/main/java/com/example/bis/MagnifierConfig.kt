@@ -1,6 +1,7 @@
 package com.example.bis
 
 import android.graphics.Point
+import android.graphics.Color
 
 /**
  * Shape type for input and output areas
@@ -44,6 +45,7 @@ data class MagnifierConfig(
     
     // Display flags
     var showCrosshair: Boolean = false,
+    var crosshairColor: Int = Color.BLACK,  // Default black
     
     // Screen properties (set at runtime)
     var screenWidth: Int = 0,

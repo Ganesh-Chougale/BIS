@@ -90,23 +90,35 @@ class ScreenCaptureManager(
                 // Convert Image to Bitmap
                 val fullBitmap = imageToBitmap(image)
                 
-                // Capture exactly what's inside the input selector
-                val startX = config.inputX.coerceAtLeast(0)
-                val startY = config.inputY.coerceAtLeast(0)
-                val cropWidth = config.inputSize.coerceAtMost(fullBitmap.width - startX)
-                val cropHeight = config.inputSize.coerceAtMost(fullBitmap.height - startY)
+                // Calculate the actual crop size based on zoom factor
+                // Higher zoom = smaller crop area (more magnification)
+                // The crop size is: outputSize / zoomFactor
+                val actualCropSize = (config.outputSize / config.zoomFactor).toInt()
+                
+                // Center the crop within the input selector area
+                val centerX = config.inputX + (config.inputSize / 2)
+                val centerY = config.inputY + (config.inputSize / 2)
+                
+                // Calculate crop bounds (centered)
+                val cropLeft = (centerX - actualCropSize / 2).coerceAtLeast(0)
+                val cropTop = (centerY - actualCropSize / 2).coerceAtLeast(0)
+                val cropRight = (cropLeft + actualCropSize).coerceAtMost(fullBitmap.width)
+                val cropBottom = (cropTop + actualCropSize).coerceAtMost(fullBitmap.height)
+                
+                val cropWidth = cropRight - cropLeft
+                val cropHeight = cropBottom - cropTop
                 
                 // Log every 60 frames to verify capture is running
                 frameCount++
                 if (frameCount % 60 == 0) {
-                    Log.d(TAG, "Frame $frameCount - Position: ($startX, $startY), Size: ${cropWidth}x${cropHeight}")
+                    Log.d(TAG, "Frame $frameCount - Zoom: ${config.zoomFactor}x, Crop: ${cropWidth}x${cropHeight} at ($cropLeft, $cropTop)")
                 }
                 
                 // Crop the selected area
                 val croppedBitmap = Bitmap.createBitmap(
                     fullBitmap,
-                    startX,
-                    startY,
+                    cropLeft,
+                    cropTop,
                     cropWidth,
                     cropHeight
                 )

@@ -16,7 +16,8 @@ class OutputWindowOverlay(
     private val context: Context,
     private val config: MagnifierConfig,
     private val windowManager: WindowManager,
-    private val onPositionChanged: (() -> Unit)? = null
+    private val onPositionChanged: (() -> Unit)? = null,
+    private val onTouched: (() -> Unit)? = null
 ) {
     private lateinit var overlayView: FrameLayout
     private lateinit var magnifierImageView: ImageView
@@ -158,6 +159,8 @@ class OutputWindowOverlay(
                     initialY = layoutParams.y
                     initialTouchX = event.rawX
                     initialTouchY = event.rawY
+                    // Notify that output window was touched (to show slider)
+                    onTouched?.invoke()
                     return true
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -175,6 +178,8 @@ class OutputWindowOverlay(
                     
                     // Notify that position changed (for slider to follow)
                     onPositionChanged?.invoke()
+                    // Also notify touch (to reset slider timeout)
+                    onTouched?.invoke()
                     
                     return true
                 }

@@ -59,7 +59,7 @@ class ToggleWidgetOverlay(
     fun updateIcon(isMagnifying: Boolean) {
         if (!isAttached) return
         
-        iconView.text = if (isMagnifying) "👁" else "⊗"
+        iconView.text = if (isMagnifying) "o" else "x"
     }
     
     /**
@@ -72,14 +72,14 @@ class ToggleWidgetOverlay(
             // Semi-transparent circular background
             val drawable = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(Color.parseColor("#80FFFFFF")) // 50% opacity white
-                setStroke(4, Color.parseColor("#4CAF50"))
+//                setColor(Color.parseColor("#80FFFFFF")) // 50% opacity white
+//                setStroke(0, Color.parseColor("#4CAF50"))
             }
             background = drawable
             
             // Icon/text
             iconView = TextView(context).apply {
-                text = if (config.isMagnifying) "👁" else "⊗"
+                text = if (config.isMagnifying) "o" else "x"
                 textSize = 32f
                 gravity = Gravity.CENTER
                 layoutParams = FrameLayout.LayoutParams(

@@ -3,6 +3,8 @@ package com.example.bis.slider.shape
 import android.content.Context
 import android.graphics.Color
 import android.graphics.PixelFormat
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
@@ -27,6 +29,11 @@ class SquareSlider(
     private lateinit var zoomLabel: TextView
     private var isSliderAttached = false
     private var zoomChangeListener: ((Float) -> Unit)? = null
+    
+    // Auto-hide functionality
+    private val hideHandler = Handler(Looper.getMainLooper())
+    private val hideRunnable = Runnable { setVisibility(false) }
+    private val AUTO_HIDE_DELAY_MS = 3000L // 3 seconds
 
     override fun show() {
         if (isSliderAttached) return
@@ -43,6 +50,7 @@ class SquareSlider(
 
     override fun remove() {
         if (!isSliderAttached) return
+        cancelAutoHideTimer()
         windowManager.removeView(overlayView)
         isSliderAttached = false
     }
@@ -84,7 +92,34 @@ class SquareSlider(
     override fun setVisibility(visible: Boolean) {
         if (isSliderAttached) {
             overlayView.visibility = if (visible) View.VISIBLE else View.GONE
+            if (visible) {
+                resetAutoHideTimer()
+            } else {
+                cancelAutoHideTimer()
+            }
         }
+    }
+    
+    /**
+     * Show the slider and start auto-hide timer
+     */
+    fun showWithTimeout() {
+        setVisibility(true)
+    }
+    
+    /**
+     * Reset the auto-hide timer (called when user interacts)
+     */
+    fun resetAutoHideTimer() {
+        cancelAutoHideTimer()
+        hideHandler.postDelayed(hideRunnable, AUTO_HIDE_DELAY_MS)
+    }
+    
+    /**
+     * Cancel the auto-hide timer
+     */
+    private fun cancelAutoHideTimer() {
+        hideHandler.removeCallbacks(hideRunnable)
     }
 
     override fun isAttached(): Boolean = isSliderAttached
@@ -94,17 +129,32 @@ class SquareSlider(
         updatePosition()
     }
 
-    // --- single clean version ---
+    /**
+     * Show zoom level feedback with fade animation
+     */
     private fun showZoomFeedback(zoom: Float) {
         zoomLabel.text = String.format("%.1fx", zoom)
-        zoomLabel.alpha = 0.5f // 50% opacity
+        // Cancel any pending animations
+        zoomLabel.animate().cancel()
+        zoomLabel.removeCallbacks(null)
+        
+        // Show with fade in
+        zoomLabel.alpha = 0f
+        zoomLabel.visibility = View.VISIBLE
         zoomLabel.animate()
-            .alpha(0.5f)
-            .setDuration(100)
+            .alpha(1f)
+            .setDuration(150)
             .withEndAction {
+                // Keep visible for 1.5 seconds, then fade out
                 zoomLabel.postDelayed({
-                    zoomLabel.animate().alpha(0f).setDuration(300).start()
-                }, 1000) // visible for 1s
+                    zoomLabel.animate()
+                        .alpha(0f)
+                        .setDuration(400)
+                        .withEndAction {
+                            zoomLabel.visibility = View.GONE
+                        }
+                        .start()
+                }, 1500)
             }
             .start()
     }
@@ -117,19 +167,28 @@ class SquareSlider(
             clipToPadding = false
             // No background - just the slider itself
 
-            // Zoom label - create but don't add to view hierarchy (used for feedback overlay)
+            // Zoom level feedback label
             zoomLabel = TextView(context).apply {
                 text = String.format("%.1fx", config.initialZoom)
-                textSize = 14f
-                setTextColor(Color.BLACK)
+                textSize = 18f
+                setTextColor(Color.WHITE)
                 gravity = Gravity.CENTER
-                alpha = 0f
+                visibility = View.GONE
+                setPadding(24, 12, 24, 12)
                 background = android.graphics.drawable.GradientDrawable().apply {
-                    setColor(Color.parseColor("#80FFFFFF"))
-                    cornerRadius = 8f
+                    setColor(Color.parseColor("#E0000000")) // 88% opacity black
+                    cornerRadius = 12f
+                }
+                elevation = 8f
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    gravity = Gravity.CENTER_HORIZONTAL
+                    setMargins(0, 0, 0, 16)
                 }
             }
-            // Note: zoomLabel is NOT added to view hierarchy to save space
+            addView(zoomLabel)
 
             // Slider container - wraps the rotated SeekBar
             val seekBarContainer = LinearLayout(context).apply {
@@ -167,9 +226,12 @@ class SquareSlider(
                                 val newZoom = config.minZoom + (progress / 10f)
                                 showZoomFeedback(newZoom)
                                 zoomChangeListener?.invoke(newZoom)
+                                resetAutoHideTimer() // Reset timer on interaction
                             }
                         }
-                        override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                        override fun onStartTrackingTouch(seekBar: SeekBar?) {
+                            resetAutoHideTimer() // Reset timer when user starts touching
+                        }
                         override fun onStopTrackingTouch(seekBar: SeekBar?) {}
                     })
                 }
@@ -187,6 +249,7 @@ class SquareSlider(
                         val newZoom = config.minZoom + (newProgress / 10f)
                         showZoomFeedback(newZoom)
                         zoomChangeListener?.invoke(newZoom)
+                        resetAutoHideTimer() // Reset timer on touch
                         true
                     } else false
                 }
