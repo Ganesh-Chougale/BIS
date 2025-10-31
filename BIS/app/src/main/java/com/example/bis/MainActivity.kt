@@ -14,6 +14,8 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import com.example.bis.config.MagnifierShape
+import com.example.bis.service.OverlayService
 
 class MainActivity : AppCompatActivity() {
     private var isServiceRunning = false
@@ -48,6 +50,7 @@ class MainActivity : AppCompatActivity() {
     private var minZoom = 1.5f
     private var maxZoom = 6.0f
     private var crosshairColor = Color.BLACK
+    private var colorFilterMode = "NORMAL"  // NORMAL, INVERSE, or MONOCHROME
     
     companion object {
         private const val REQUEST_MEDIA_PROJECTION = 1001
@@ -285,6 +288,93 @@ class MainActivity : AppCompatActivity() {
         // Add zoom range container to main layout
         layout.addView(zoomRangeContainer)
         
+        // Color Filter Section
+        val colorFilterLabel = TextView(this).apply {
+            text = "Output Color Filter:"
+            textSize = 16f
+            setPadding(0, 24, 0, 8)
+        }
+        layout.addView(colorFilterLabel)
+        
+        // Color filter enable/disable switch
+        val colorFilterSwitch = Switch(this).apply {
+            text = "Color Filter: OFF"
+            isChecked = false
+            setOnCheckedChangeListener { _, isChecked ->
+                text = if (isChecked) "Color Filter: ON" else "Color Filter: OFF"
+                // Show/hide filter options
+                findViewById<LinearLayout>(View.generateViewId())?.apply {
+                    visibility = if (isChecked) View.VISIBLE else View.GONE
+                }
+                // Reset to normal if disabled
+                if (!isChecked) {
+                    colorFilterMode = "NORMAL"
+                }
+            }
+        }
+        layout.addView(colorFilterSwitch)
+        
+        // Color filter options container (initially hidden)
+        val colorFilterOptionsContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            id = View.generateViewId()
+            setPadding(32, 8, 0, 0)
+        }
+        
+        val filterTypeLabel = TextView(this).apply {
+            text = "Select Filter Type:"
+            textSize = 14f
+            setPadding(0, 8, 0, 8)
+        }
+        colorFilterOptionsContainer.addView(filterTypeLabel)
+        
+        // Radio group for filter types
+        val filterRadioGroup = RadioGroup(this).apply {
+            orientation = RadioGroup.VERTICAL
+        }
+        
+        val inverseRadio = RadioButton(this).apply {
+            id = View.generateViewId()
+            text = "Inverse Colors"
+            isChecked = true  // Default selection
+        }
+        filterRadioGroup.addView(inverseRadio)
+        
+        val monochromeRadio = RadioButton(this).apply {
+            id = View.generateViewId()
+            text = "Monochrome (Grayscale)"
+        }
+        filterRadioGroup.addView(monochromeRadio)
+        
+        // Handle radio button selection
+        filterRadioGroup.setOnCheckedChangeListener { _, checkedId ->
+            colorFilterMode = when (checkedId) {
+                monochromeRadio.id -> "MONOCHROME"
+                else -> "INVERSE"
+            }
+        }
+        
+        colorFilterOptionsContainer.addView(filterRadioGroup)
+        layout.addView(colorFilterOptionsContainer)
+        
+        // Update switch listener to show/hide options
+        colorFilterSwitch.setOnCheckedChangeListener { _, isChecked ->
+            colorFilterSwitch.text = if (isChecked) "Color Filter: ON" else "Color Filter: OFF"
+            colorFilterOptionsContainer.visibility = if (isChecked) View.VISIBLE else View.GONE
+            
+            if (isChecked) {
+                // Set to selected filter type
+                colorFilterMode = when (filterRadioGroup.checkedRadioButtonId) {
+                    monochromeRadio.id -> "MONOCHROME"
+                    else -> "INVERSE"
+                }
+            } else {
+                // Reset to normal
+                colorFilterMode = "NORMAL"
+            }
+        }
+        
         // Toggle button
         toggleButton = Button(this).apply {
             text = "Start Magnifier"
@@ -410,6 +500,7 @@ class MainActivity : AppCompatActivity() {
                     putExtra("OUTPUT_DRAGGABLE", isOutputDraggable)
                     putExtra("SHOW_CROSSHAIR", showCrosshair)
                     putExtra("CROSSHAIR_COLOR", crosshairColor)
+                    putExtra("COLOR_FILTER_MODE", colorFilterMode)
                     putExtra("SHOW_ZOOM_SLIDER", showZoomSlider)
                     putExtra("MIN_ZOOM", minZoom)
                     putExtra("MAX_ZOOM", maxZoom)

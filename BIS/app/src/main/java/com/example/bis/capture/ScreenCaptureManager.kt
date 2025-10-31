@@ -1,4 +1,4 @@
-package com.example.bis
+package com.example.bis.capture
 
 import android.content.Context
 import android.content.Intent
@@ -14,6 +14,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import java.nio.ByteBuffer
+import com.example.bis.config.MagnifierConfig
 
 /**
  * Manages screen capture using MediaProjection API.

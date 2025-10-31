@@ -1,4 +1,4 @@
-package com.example.bis
+package com.example.bis.overlay
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -7,6 +7,9 @@ import android.graphics.drawable.GradientDrawable
 import android.view.*
 import android.widget.FrameLayout
 import android.widget.ImageView
+import com.example.bis.config.MagnifierConfig
+import com.example.bis.config.MagnifierShape
+import com.example.bis.filter.ColorFilterProcessor
 
 /**
  * Output window that displays the magnified view.
@@ -75,7 +78,10 @@ class OutputWindowOverlay(
     fun updateMagnifiedView(bitmap: Bitmap) {
         if (!isAttached) return
         
-        magnifierImageView.setImageBitmap(bitmap)
+        // Apply color filter using ColorFilterProcessor
+        val filteredBitmap = ColorFilterProcessor.applyFilter(bitmap, config.colorFilterMode)
+        
+        magnifierImageView.setImageBitmap(filteredBitmap)
     }
     
     /**

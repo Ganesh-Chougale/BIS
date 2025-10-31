@@ -1,4 +1,4 @@
-package com.example.bis
+package com.example.bis.overlay
 
 import android.content.Context
 import android.graphics.Color
@@ -8,6 +8,7 @@ import android.view.*
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.example.bis.config.MagnifierConfig
 import kotlin.math.abs
 
 /**

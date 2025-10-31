@@ -1,4 +1,4 @@
-package com.example.bis
+package com.example.bis.config
 
 import android.graphics.Point
 import android.graphics.Color
@@ -46,6 +46,7 @@ data class MagnifierConfig(
     // Display flags
     var showCrosshair: Boolean = false,
     var crosshairColor: Int = Color.BLACK,  // Default black
+    var colorFilterMode: String = "NORMAL",  // NORMAL, INVERSE, or MONOCHROME
     
     // Screen properties (set at runtime)
     var screenWidth: Int = 0,

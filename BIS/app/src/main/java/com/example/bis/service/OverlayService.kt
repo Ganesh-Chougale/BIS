@@ -1,4 +1,4 @@
-package com.example.bis
+package com.example.bis.service
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -13,6 +13,13 @@ import android.util.DisplayMetrics
 import android.util.Log
 import android.view.WindowManager
 import android.widget.Toast
+import com.example.bis.config.MagnifierConfig
+import com.example.bis.config.MagnifierShape
+import com.example.bis.overlay.InputSelectorOverlay
+import com.example.bis.overlay.OutputWindowOverlay
+import com.example.bis.overlay.ToggleWidgetOverlay
+import com.example.bis.overlay.ControlPanelOverlay
+import com.example.bis.capture.ScreenCaptureManager
 import com.example.bis.slider.Slider
 import com.example.bis.slider.SliderFactory
 import com.example.bis.slider.model.SliderConfig
@@ -235,6 +242,7 @@ class OverlayService : Service() {
                 val isOutputDraggable = intent.getBooleanExtra("OUTPUT_DRAGGABLE", true)
                 val showCrosshair = intent.getBooleanExtra("SHOW_CROSSHAIR", false)
                 val crosshairColor = intent.getIntExtra("CROSSHAIR_COLOR", android.graphics.Color.BLACK)
+                val colorFilterMode = intent.getStringExtra("COLOR_FILTER_MODE") ?: "NORMAL"
                 val showZoomSlider = intent.getBooleanExtra("SHOW_ZOOM_SLIDER", false)
                 
                 // Apply configuration
@@ -249,6 +257,7 @@ class OverlayService : Service() {
                 config.isOutputDraggable = isOutputDraggable
                 config.showCrosshair = showCrosshair
                 config.crosshairColor = crosshairColor
+                config.colorFilterMode = colorFilterMode
                 
                 // Set initial positions BEFORE creating overlays
                 if (config.inputX == 0 && config.inputY == 0) {
