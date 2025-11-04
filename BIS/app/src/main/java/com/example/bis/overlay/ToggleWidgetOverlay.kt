@@ -38,12 +38,23 @@ class ToggleWidgetOverlay(
      * Create and show the toggle widget overlay
      */
     fun show() {
-        if (isAttached) return
+        if (isAttached) {
+            Log.d("ToggleWidgetOverlay", "Already attached, skipping show()")
+            return
+        }
         
-        Log.d("ToggleWidgetOverlay", "show() called - isWidgetDraggable: ${config.isWidgetDraggable}")
-        createView()
-        windowManager.addView(overlayView, layoutParams)
-        isAttached = true
+        try {
+            Log.d("ToggleWidgetOverlay", "show() called - isWidgetDraggable: ${config.isWidgetDraggable}")
+            Log.d("ToggleWidgetOverlay", "Creating view...")
+            createView()
+            Log.d("ToggleWidgetOverlay", "Adding view to window manager...")
+            windowManager.addView(overlayView, layoutParams)
+            isAttached = true
+            Log.d("ToggleWidgetOverlay", "Successfully shown")
+        } catch (e: Exception) {
+            Log.e("ToggleWidgetOverlay", "Failed to show overlay", e)
+            throw e  // Re-throw to let caller handle
+        }
     }
     
     /**

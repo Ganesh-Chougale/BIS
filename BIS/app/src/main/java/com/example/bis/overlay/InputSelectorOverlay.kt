@@ -33,11 +33,25 @@ class InputSelectorOverlay(
      * Create and show the input selector overlay
      */
     fun show() {
-        if (isAttached) return
+        if (isAttached) {
+            android.util.Log.d("InputSelectorOverlay", "Already attached, skipping show()")
+            return
+        }
         
-        createView()
-        windowManager.addView(overlayView, layoutParams)
-        isAttached = true
+        try {
+            android.util.Log.d("InputSelectorOverlay", "Creating view...")
+            createView()
+            android.util.Log.d("InputSelectorOverlay", "Adding view to window manager...")
+            windowManager.addView(overlayView, layoutParams)
+            isAttached = true
+            android.util.Log.d("InputSelectorOverlay", "Successfully shown")
+        } catch (e: WindowManager.BadTokenException) {
+            android.util.Log.e("InputSelectorOverlay", "Failed to show overlay: BadTokenException", e)
+            throw e  // Re-throw to let caller handle
+        } catch (e: Exception) {
+            android.util.Log.e("InputSelectorOverlay", "Failed to show overlay", e)
+            throw e  // Re-throw to let caller handle
+        }
     }
     
     /**

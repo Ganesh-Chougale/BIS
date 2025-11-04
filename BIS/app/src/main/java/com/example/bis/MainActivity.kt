@@ -189,7 +189,7 @@ class MainActivity : AppCompatActivity() {
         
         // Widget draggable toggle
         val widgetDraggableLabel = TextView(this).apply {
-            text = "Toggle Widget Draggable:"
+            text = "Widget Draggable:"
             textSize = 16f
             setPadding(0, 24, 0, 8)
         }

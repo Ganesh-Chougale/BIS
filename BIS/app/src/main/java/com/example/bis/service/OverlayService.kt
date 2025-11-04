@@ -90,14 +90,20 @@ class OverlayService : Service() {
         
         // Check overlay permission
         if (!Settings.canDrawOverlays(this)) {
-            Toast.makeText(this, "ERROR: No overlay permission!", Toast.LENGTH_LONG).show()
-            Log.e(TAG, "No overlay permission!")
+            val errorMsg = "ERROR: No overlay permission!"
+            Toast.makeText(this, errorMsg, Toast.LENGTH_LONG).show()
+            Log.e(TAG, errorMsg)
             return
         }
         
+        Log.d(TAG, "Overlay permission granted, creating overlays...")
+        
         try {
-            // Initialize overlays
+            // Initialize input selector overlay
+            Log.d(TAG, "Creating InputSelectorOverlay...")
             inputSelectorOverlay = InputSelectorOverlay(this, config, windowManager)
+            
+            Log.d(TAG, "Creating OutputWindowOverlay...")
             outputWindowOverlay = OutputWindowOverlay(
                 context = this,
                 config = config,
@@ -105,15 +111,20 @@ class OverlayService : Service() {
                 onPositionChanged = { onOutputPositionChanged() },
                 onTouched = { onOutputWindowTouched() }
             )
+            
+            Log.d(TAG, "Creating ToggleWidgetOverlay...")
             toggleWidgetOverlay = ToggleWidgetOverlay(
                 context = this,
                 config = config,
                 windowManager = windowManager,
                 onToggleClick = { toggleMagnification() }
             )
+            
             // Create slider configuration
+            Log.d(TAG, "Creating slider configuration...")
             val sliderConfig = createSliderConfig()
             
+            Log.d(TAG, "Creating ZoomSlider...")
             zoomSlider = SliderFactory.createSlider(
                 context = this,
                 config = sliderConfig,
@@ -124,17 +135,59 @@ class OverlayService : Service() {
                 }
             )
             
-            // Show all overlays
-            inputSelectorOverlay.show()
-            outputWindowOverlay.show()
-            toggleWidgetOverlay.show()
-            zoomSlider.show()
+            // Show all overlays with individual error handling
+            var overlaysShown = 0
             
-            Log.d(TAG, "All overlays created successfully")
-            Toast.makeText(this, "Magnifier ready!", Toast.LENGTH_SHORT).show()
+            try {
+                Log.d(TAG, "Showing InputSelectorOverlay...")
+                inputSelectorOverlay.show()
+                overlaysShown++
+                Log.d(TAG, "InputSelectorOverlay shown successfully")
+            } catch (e: Exception) {
+                Log.e(TAG, "FAILED to show InputSelectorOverlay", e)
+                Toast.makeText(this, "ERROR showing input selector: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+            
+            try {
+                Log.d(TAG, "Showing OutputWindowOverlay...")
+                outputWindowOverlay.show()
+                overlaysShown++
+                Log.d(TAG, "OutputWindowOverlay shown successfully")
+            } catch (e: Exception) {
+                Log.e(TAG, "FAILED to show OutputWindowOverlay", e)
+                Toast.makeText(this, "ERROR showing output window: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+            
+            try {
+                Log.d(TAG, "Showing ToggleWidgetOverlay...")
+                toggleWidgetOverlay.show()
+                overlaysShown++
+                Log.d(TAG, "ToggleWidgetOverlay shown successfully")
+            } catch (e: Exception) {
+                Log.e(TAG, "FAILED to show ToggleWidgetOverlay", e)
+                Toast.makeText(this, "ERROR showing toggle widget: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+            
+            try {
+                Log.d(TAG, "Showing ZoomSlider...")
+                zoomSlider.show()
+                overlaysShown++
+                Log.d(TAG, "ZoomSlider shown successfully")
+            } catch (e: Exception) {
+                Log.e(TAG, "FAILED to show ZoomSlider", e)
+                Toast.makeText(this, "ERROR showing zoom slider: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+            
+            Log.d(TAG, "Overlay creation complete: $overlaysShown/4 overlays shown")
+            
+            if (overlaysShown == 4) {
+                Toast.makeText(this, "Magnifier ready!", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "WARNING: Only $overlaysShown/4 overlays shown. Check logs.", Toast.LENGTH_LONG).show()
+            }
         } catch (e: Exception) {
-            Log.e(TAG, "Error creating overlays", e)
-            Toast.makeText(this, "ERROR: ${e.message}", Toast.LENGTH_LONG).show()
+            Log.e(TAG, "CRITICAL ERROR creating overlays", e)
+            Toast.makeText(this, "CRITICAL ERROR: ${e.message}\n${e.stackTraceToString()}", Toast.LENGTH_LONG).show()
         }
     }
     
