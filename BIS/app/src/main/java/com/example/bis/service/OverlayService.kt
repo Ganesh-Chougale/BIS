@@ -216,6 +216,14 @@ class OverlayService : Service() {
         Log.d(TAG, "Action: ${intent?.action}")
         Log.d(TAG, "Flags: $flags, StartId: $startId")
         
+        // Handle STOP_SERVICE action
+        if (intent?.action == "STOP_SERVICE") {
+            Log.d(TAG, "Received STOP_SERVICE action, stopping service...")
+            stopForeground(true)
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        
         // Only process if we have a START_CAPTURE action
         if (intent?.action == "START_CAPTURE") {
             // Get data from companion object (since Intent can't be passed as extra)
@@ -240,7 +248,10 @@ class OverlayService : Service() {
                 val maxZoom = intent.getFloatExtra("MAX_ZOOM", 6.0f)
                 val isInputDraggable = intent.getBooleanExtra("INPUT_DRAGGABLE", false)
                 val isOutputDraggable = intent.getBooleanExtra("OUTPUT_DRAGGABLE", true)
+                val isWidgetDraggable = intent.getBooleanExtra("WIDGET_DRAGGABLE", false)
                 val showCrosshair = intent.getBooleanExtra("SHOW_CROSSHAIR", false)
+                
+                Log.d(TAG, "Configuration received - isWidgetDraggable: $isWidgetDraggable")
                 val crosshairColor = intent.getIntExtra("CROSSHAIR_COLOR", android.graphics.Color.BLACK)
                 val colorFilterMode = intent.getStringExtra("COLOR_FILTER_MODE") ?: "NORMAL"
                 val showZoomSlider = intent.getBooleanExtra("SHOW_ZOOM_SLIDER", false)
@@ -255,7 +266,10 @@ class OverlayService : Service() {
                 config.minZoom = minZoom
                 config.isInputDraggable = isInputDraggable
                 config.isOutputDraggable = isOutputDraggable
+                config.isWidgetDraggable = isWidgetDraggable
                 config.showCrosshair = showCrosshair
+                
+                Log.d(TAG, "Configuration applied - config.isWidgetDraggable: ${config.isWidgetDraggable}")
                 config.crosshairColor = crosshairColor
                 config.colorFilterMode = colorFilterMode
                 
@@ -274,7 +288,7 @@ class OverlayService : Service() {
                 
                 Log.d(TAG, "Configuration: shape=${config.shape}, size=${config.inputSize}, maxZoom=${config.maxZoom}")
                 Log.d(TAG, "Initial positions: input=(${config.inputX},${config.inputY}), output=(${config.outputPosition.x},${config.outputPosition.y})")
-                Toast.makeText(this, "Starting magnifier...", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Starting magnifier... Widget Draggable: ${config.isWidgetDraggable}", Toast.LENGTH_LONG).show()
                 
                 // Create overlays if not already created
                 if (!::inputSelectorOverlay.isInitialized) {

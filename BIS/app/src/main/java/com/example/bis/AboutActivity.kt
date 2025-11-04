@@ -23,7 +23,7 @@ class AboutActivity : AppCompatActivity() {
         findViewById<LinearLayout>(R.id.emailContainer).setOnClickListener {
             val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
                 data = Uri.parse("mailto:gchougale32@gmail.com")
-                putExtra(Intent.EXTRA_SUBJECT, "ScopeR App Feedback")
+                putExtra(Intent.EXTRA_SUBJECT, "Scoper App Feedback")
             }
             try {
                 startActivity(Intent.createChooser(emailIntent, "Send email via"))

@@ -32,6 +32,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var outputSizeLabel: TextView
     private lateinit var inputDraggableSwitch: Switch
     private lateinit var outputDraggableSwitch: Switch
+    private lateinit var widgetDraggableSwitch: Switch
     private lateinit var crosshairSwitch: Switch
     private lateinit var zoomSliderSwitch: Switch
     private lateinit var minZoomSeekBar: SeekBar
@@ -45,6 +46,7 @@ class MainActivity : AppCompatActivity() {
     private var selectedOutputSize = 500
     private var isInputDraggable = false
     private var isOutputDraggable = true
+    private var isWidgetDraggable = false
     private var showCrosshair = false
     private var showZoomSlider = false
     private var minZoom = 1.5f
@@ -185,6 +187,24 @@ class MainActivity : AppCompatActivity() {
         }
         layout.addView(outputDraggableSwitch)
         
+        // Widget draggable toggle
+        val widgetDraggableLabel = TextView(this).apply {
+            text = "Toggle Widget Draggable:"
+            textSize = 16f
+            setPadding(0, 24, 0, 8)
+        }
+        layout.addView(widgetDraggableLabel)
+        
+        widgetDraggableSwitch = Switch(this).apply {
+            isChecked = false  // Default OFF
+            text = if (isChecked) "ON" else "OFF"
+            setOnCheckedChangeListener { _, isChecked ->
+                isWidgetDraggable = isChecked
+                text = if (isChecked) "ON" else "OFF"
+            }
+        }
+        layout.addView(widgetDraggableSwitch)
+        
         // Crosshair toggle
         val crosshairLabel = TextView(this).apply {
             text = "Show Crosshair in Input:"
@@ -204,19 +224,13 @@ class MainActivity : AppCompatActivity() {
         layout.addView(crosshairSwitch)
         
         // Zoom slider toggle
-        val zoomSliderLabel = TextView(this).apply {
-            text = "Show Zoom Slider:"
-            textSize = 16f
-            setPadding(0, 24, 0, 8)
-        }
-        layout.addView(zoomSliderLabel)
-        
         zoomSliderSwitch = Switch(this).apply {
             isChecked = false  // Default OFF
-            text = if (isChecked) "ON" else "OFF"
+            textSize = 16f
+            text = if (isChecked) "Show Zoom Slider ON" else "Show Zoom Slider OFF"
             setOnCheckedChangeListener { _, isChecked ->
                 showZoomSlider = isChecked
-                text = if (isChecked) "ON" else "OFF"
+                text = if (isChecked) "Show Zoom Slider ON" else "Show Zoom Slider OFF"
                 // Show/hide zoom range controls
                 zoomRangeContainer.visibility = if (isChecked) View.VISIBLE else View.GONE
             }
@@ -288,17 +302,10 @@ class MainActivity : AppCompatActivity() {
         // Add zoom range container to main layout
         layout.addView(zoomRangeContainer)
         
-        // Color Filter Section
-        val colorFilterLabel = TextView(this).apply {
-            text = "Output Color Filter:"
-            textSize = 16f
-            setPadding(0, 24, 0, 8)
-        }
-        layout.addView(colorFilterLabel)
-        
         // Color filter enable/disable switch
         val colorFilterSwitch = Switch(this).apply {
             text = "Color Filter: OFF"
+            textSize = 16f
             isChecked = false
             setOnCheckedChangeListener { _, isChecked ->
                 text = if (isChecked) "Color Filter: ON" else "Color Filter: OFF"
@@ -436,7 +443,11 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener {
                 // Stop the service if running
                 if (isServiceRunning) {
-                    stopService(Intent(this@MainActivity, OverlayService::class.java))
+                    val stopIntent = Intent(this@MainActivity, OverlayService::class.java).apply {
+                        action = "STOP_SERVICE"
+                    }
+                    startService(stopIntent)
+                    isServiceRunning = false
                 }
                 // Close the app
                 finishAffinity()
@@ -449,7 +460,10 @@ class MainActivity : AppCompatActivity() {
     
     private fun toggleService() {
         if (isServiceRunning) {
-            stopService(Intent(this, OverlayService::class.java))
+            val stopIntent = Intent(this, OverlayService::class.java).apply {
+                action = "STOP_SERVICE"
+            }
+            startService(stopIntent)
             toggleButton.text = "Start Magnifier"
             isServiceRunning = false
         } else {
@@ -474,6 +488,11 @@ class MainActivity : AppCompatActivity() {
         if (!Settings.canDrawOverlays(this)) {
             toggleButton.text = "Grant Permission First"
             isServiceRunning = false
+        } else {
+            // Permission is granted, update button text
+            if (!isServiceRunning) {
+                toggleButton.text = "Start Magnifier"
+            }
         }
     }
     
@@ -487,6 +506,8 @@ class MainActivity : AppCompatActivity() {
                 // Store the capture data in service companion object
                 OverlayService.setPendingCaptureData(data)
                 
+                Log.d("MainActivity", "Sending config - isWidgetDraggable: $isWidgetDraggable")
+                
                 // Send the capture command to the service with configuration
                 val captureIntent = Intent(this, OverlayService::class.java).apply {
                     action = "START_CAPTURE"
@@ -498,6 +519,7 @@ class MainActivity : AppCompatActivity() {
                     putExtra("OUTPUT_SIZE", selectedOutputSize)
                     putExtra("INPUT_DRAGGABLE", isInputDraggable)
                     putExtra("OUTPUT_DRAGGABLE", isOutputDraggable)
+                    putExtra("WIDGET_DRAGGABLE", isWidgetDraggable)
                     putExtra("SHOW_CROSSHAIR", showCrosshair)
                     putExtra("CROSSHAIR_COLOR", crosshairColor)
                     putExtra("COLOR_FILTER_MODE", colorFilterMode)

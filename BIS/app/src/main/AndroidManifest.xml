@@ -27,7 +27,7 @@
             android:theme="@style/Theme.BIS" />
 
         <service
-            android:name=".OverlayService"
+            android:name=".service.OverlayService"
             android:exported="false"
             android:foregroundServiceType="mediaProjection" />
     </application>

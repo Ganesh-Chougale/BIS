@@ -42,6 +42,7 @@ data class MagnifierConfig(
     // Draggable flags
     var isInputDraggable: Boolean = false,
     var isOutputDraggable: Boolean = true,
+    var isWidgetDraggable: Boolean = false,
     
     // Display flags
     var showCrosshair: Boolean = false,

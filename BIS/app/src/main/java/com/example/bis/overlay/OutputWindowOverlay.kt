@@ -102,10 +102,10 @@ class OutputWindowOverlay(
         overlayView = FrameLayout(context).apply {
             layoutParams = ViewGroup.LayoutParams(outputSize, outputSize)
             
-            // Black background with green border
+            // Semi-transparent dark background with thick green border for visibility
             val drawable = GradientDrawable().apply {
-                setColor(Color.BLACK)
-                setStroke(5, Color.parseColor("#4CAF50"))
+                setColor(Color.parseColor("#CC000000")) // 80% opacity black
+                setStroke(8, Color.parseColor("#4CAF50")) // Thicker border
                 
                 // Make it circular if shape is CIRCLE
                 if (config.shape == MagnifierShape.CIRCLE) {

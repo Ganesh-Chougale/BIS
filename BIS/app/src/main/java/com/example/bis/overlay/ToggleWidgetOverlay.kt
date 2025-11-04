@@ -3,6 +3,7 @@ package com.example.bis.overlay
 import android.content.Context
 import android.graphics.Color
 import android.graphics.PixelFormat
+import android.util.Log
 import com.example.bis.config.MagnifierConfig
 import android.graphics.drawable.GradientDrawable
 import android.view.*
@@ -39,6 +40,7 @@ class ToggleWidgetOverlay(
     fun show() {
         if (isAttached) return
         
+        Log.d("ToggleWidgetOverlay", "show() called - isWidgetDraggable: ${config.isWidgetDraggable}")
         createView()
         windowManager.addView(overlayView, layoutParams)
         isAttached = true
@@ -60,7 +62,7 @@ class ToggleWidgetOverlay(
     fun updateIcon(isMagnifying: Boolean) {
         if (!isAttached) return
         
-        iconView.text = if (isMagnifying) "o" else "x"
+        iconView.text = if (isMagnifying) "x" else "o"
     }
     
     /**
@@ -73,14 +75,12 @@ class ToggleWidgetOverlay(
             // Semi-transparent circular background
             val drawable = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-//                setColor(Color.parseColor("#80FFFFFF")) // 50% opacity white
-//                setStroke(0, Color.parseColor("#4CAF50"))
             }
             background = drawable
             
             // Icon/text
             iconView = TextView(context).apply {
-                text = if (config.isMagnifying) "o" else "x"
+                text = if (config.isMagnifying) "x" else "o"
                 textSize = 32f
                 gravity = Gravity.CENTER
                 layoutParams = FrameLayout.LayoutParams(
@@ -125,11 +125,14 @@ class ToggleWidgetOverlay(
                     val deltaX = (event.rawX - initialTouchX).toInt()
                     val deltaY = (event.rawY - initialTouchY).toInt()
                     
-                    if (abs(deltaX) > clickThreshold || abs(deltaY) > clickThreshold) {
+                    // Only allow dragging if widget draggable is enabled
+                    if (config.isWidgetDraggable && (abs(deltaX) > clickThreshold || abs(deltaY) > clickThreshold)) {
+                        Log.d("ToggleWidgetOverlay", "Dragging widget - isWidgetDraggable: ${config.isWidgetDraggable}")
                         isDragging = true
                         
-                        val newX = initialX + deltaX
-                        val newY = initialY + deltaY
+                        // Invert deltas because gravity is BOTTOM|END
+                        val newX = initialX - deltaX
+                        val newY = initialY - deltaY
                         
                         // Update config
                         config.togglePosition.x = newX
@@ -140,8 +143,10 @@ class ToggleWidgetOverlay(
                         layoutParams.y = newY
                         windowManager.updateViewLayout(overlayView, layoutParams)
                         return true
+                    } else if (abs(deltaX) > clickThreshold || abs(deltaY) > clickThreshold) {
+                        Log.d("ToggleWidgetOverlay", "Drag blocked - isWidgetDraggable: ${config.isWidgetDraggable}")
                     }
-                    return false
+                    return true
                 }
                 MotionEvent.ACTION_UP -> {
                     if (!isDragging) {

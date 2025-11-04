@@ -86,9 +86,6 @@ class InputSelectorOverlay(
             
             // Green border with semi-transparent fill
             val drawable = GradientDrawable().apply {
-                // setStroke(8, Color.parseColor("#4CAF50"))
-                // setColor(Color.parseColor("#204CAF50")) // 20% opacity green
-                
                 // Make it circular if shape is CIRCLE
                 if (config.shape == MagnifierShape.CIRCLE) {
                     cornerRadius = (config.inputSize / 2).toFloat()
