@@ -351,12 +351,23 @@ class OverlayService : Service() {
                     onOutputPositionChanged()
                     // Start with slider hidden - it will show when user touches output window
                     zoomSlider.setVisibility(false)
+                    
+                    // IMPORTANT: Automatically enable magnification so overlays are visible
+                    // Without this, overlays are created but hidden until user clicks toggle
+                    Log.d(TAG, "Auto-enabling magnification...")
+                    config.isMagnifying = true
+                    inputSelectorOverlay.reveal()
+                    outputWindowOverlay.reveal()
+                    toggleWidgetOverlay.updateIcon(true)
+                    Log.d(TAG, "Magnification auto-enabled, overlays should now be visible")
                 } else {
                     Log.d(TAG, "Overlays already exist")
                 }
                 
                 // Start screen capture
+                Log.d(TAG, "Starting screen capture...")
                 screenCaptureManager.startCapture(resultCode, data)
+                Log.d(TAG, "Screen capture started")
             }
         } else {
             Log.d(TAG, "Service started without START_CAPTURE action, waiting for capture intent...")

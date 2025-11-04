@@ -37,11 +37,22 @@ class OutputWindowOverlay(
      * Create and show the output window overlay
      */
     fun show() {
-        if (isAttached) return
+        if (isAttached) {
+            android.util.Log.d("OutputWindowOverlay", "Already attached, skipping show()")
+            return
+        }
         
-        createView()
-        windowManager.addView(overlayView, layoutParams)
-        isAttached = true
+        try {
+            android.util.Log.d("OutputWindowOverlay", "Creating view...")
+            createView()
+            android.util.Log.d("OutputWindowOverlay", "Adding view to window manager...")
+            windowManager.addView(overlayView, layoutParams)
+            isAttached = true
+            android.util.Log.d("OutputWindowOverlay", "Successfully shown")
+        } catch (e: Exception) {
+            android.util.Log.e("OutputWindowOverlay", "Failed to show overlay", e)
+            throw e  // Re-throw to let caller handle
+        }
     }
     
     /**

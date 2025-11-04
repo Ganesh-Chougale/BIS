@@ -48,6 +48,14 @@ class ScreenCaptureManager(
             val projectionManager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
             mediaProjection = projectionManager.getMediaProjection(resultCode, data)
             
+            // Register callback (required for Android 14+)
+            mediaProjection?.registerCallback(object : MediaProjection.Callback() {
+                override fun onStop() {
+                    Log.d(TAG, "MediaProjection stopped")
+                    cleanup()
+                }
+            }, handler)
+            
             // Create ImageReader to capture screen
             imageReader = ImageReader.newInstance(
                 config.screenWidth,
