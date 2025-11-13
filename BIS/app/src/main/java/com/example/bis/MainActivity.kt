@@ -441,16 +441,7 @@ class MainActivity : AppCompatActivity() {
                 setMargins(0, 16, 0, 32)
             }
             setOnClickListener {
-                // Stop the service if running
-                if (isServiceRunning) {
-                    val stopIntent = Intent(this@MainActivity, OverlayService::class.java).apply {
-                        action = "STOP_SERVICE"
-                    }
-                    startService(stopIntent)
-                    isServiceRunning = false
-                }
-                // Close the app
-                finishAffinity()
+                exitAppCompletely()
             }
         }
         layout.addView(exitButton)
@@ -550,6 +541,50 @@ class MainActivity : AppCompatActivity() {
                 true
             }
             else -> super.onOptionsItemSelected(item)
+        }
+    }
+    
+    /**
+     * Completely exits the application, ensuring no background processes remain running
+     */
+    private fun exitAppCompletely() {
+        try {
+            Log.d("MainActivity", "Starting complete app exit process...")
+            
+            // 1. Stop the overlay service if running
+            if (isServiceRunning) {
+                Log.d("MainActivity", "Stopping OverlayService...")
+                val stopIntent = Intent(this, OverlayService::class.java).apply {
+                    action = "STOP_SERVICE"
+                }
+                startService(stopIntent)
+                isServiceRunning = false
+            }
+            
+            // 2. Stop all services explicitly
+            Log.d("MainActivity", "Stopping all services...")
+            stopService(Intent(this, OverlayService::class.java))
+            
+            // 3. Clear any pending capture data
+            OverlayService.setPendingCaptureData(Intent())
+            
+            // 4. Finish all activities in the task
+            Log.d("MainActivity", "Finishing all activities...")
+            finishAffinity()
+            
+            // 5. Force garbage collection to clean up resources
+            System.gc()
+            
+            // 6. Exit the process completely (this ensures no background threads remain)
+            Log.d("MainActivity", "Terminating process...")
+            android.os.Process.killProcess(android.os.Process.myPid())
+            System.exit(0)
+            
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error during app exit", e)
+            // Fallback: force exit even if cleanup fails
+            android.os.Process.killProcess(android.os.Process.myPid())
+            System.exit(1)
         }
     }
 }

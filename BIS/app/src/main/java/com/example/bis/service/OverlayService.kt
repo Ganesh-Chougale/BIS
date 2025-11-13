@@ -271,7 +271,8 @@ class OverlayService : Service() {
         
         // Handle STOP_SERVICE action
         if (intent?.action == "STOP_SERVICE") {
-            Log.d(TAG, "Received STOP_SERVICE action, stopping service...")
+            Log.d(TAG, "Received STOP_SERVICE action, performing complete cleanup...")
+            performCompleteCleanup()
             stopForeground(true)
             stopSelf()
             return START_NOT_STICKY
@@ -401,28 +402,58 @@ class OverlayService : Service() {
         startForeground(1, notification)
     }
     
+    /**
+     * Performs complete cleanup of all resources before service termination
+     */
+    private fun performCompleteCleanup() {
+        try {
+            Log.d(TAG, "Starting complete cleanup...")
+            
+            // 1. Stop screen capture first
+            if (::screenCaptureManager.isInitialized) {
+                Log.d(TAG, "Stopping screen capture...")
+                screenCaptureManager.stopCapture()
+            }
+            
+            // 2. Hide and remove all overlays
+            if (::inputSelectorOverlay.isInitialized) {
+                Log.d(TAG, "Removing input selector overlay...")
+                inputSelectorOverlay.hide()
+                inputSelectorOverlay.remove()
+            }
+            if (::outputWindowOverlay.isInitialized) {
+                Log.d(TAG, "Removing output window overlay...")
+                outputWindowOverlay.hide()
+                outputWindowOverlay.remove()
+            }
+            if (::toggleWidgetOverlay.isInitialized) {
+                Log.d(TAG, "Removing toggle widget overlay...")
+                toggleWidgetOverlay.remove()
+            }
+            if (::zoomSlider.isInitialized) {
+                Log.d(TAG, "Removing zoom slider...")
+                zoomSlider.setVisibility(false)
+                zoomSlider.remove()
+            }
+            
+            // 3. Clear pending capture data
+            pendingCaptureData = null
+            
+            // 4. Reset configuration
+            config.isMagnifying = false
+            
+            Log.d(TAG, "Complete cleanup finished")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error during cleanup", e)
+        }
+    }
 
     override fun onDestroy() {
         super.onDestroy()
         
-        // Stop screen capture
-        if (::screenCaptureManager.isInitialized) {
-            screenCaptureManager.stopCapture()
-        }
-        
-        // Remove all overlays
-        if (::inputSelectorOverlay.isInitialized) {
-            inputSelectorOverlay.remove()
-        }
-        if (::outputWindowOverlay.isInitialized) {
-            outputWindowOverlay.remove()
-        }
-        if (::toggleWidgetOverlay.isInitialized) {
-            toggleWidgetOverlay.remove()
-        }
-        if (::zoomSlider.isInitialized) {
-            zoomSlider.remove()
-        }
+        // Perform cleanup if not already done
+        performCompleteCleanup()
         
         Log.d(TAG, "Service destroyed")
     }
