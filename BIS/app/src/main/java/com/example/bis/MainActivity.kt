@@ -34,6 +34,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var outputDraggableSwitch: Switch
     private lateinit var widgetDraggableSwitch: Switch
     private lateinit var crosshairSwitch: Switch
+    private lateinit var outputCrosshairSwitch: Switch
+    private lateinit var outputCrosshairContainer: LinearLayout
     private lateinit var zoomSliderSwitch: Switch
     private lateinit var minZoomSeekBar: SeekBar
     private lateinit var minZoomLabel: TextView
@@ -48,6 +50,7 @@ class MainActivity : AppCompatActivity() {
     private var isOutputDraggable = true
     private var isWidgetDraggable = false
     private var showCrosshair = false
+    private var showOutputCrosshair = false
     private var showZoomSlider = false
     private var minZoom = 1.5f
     private var maxZoom = 6.0f
@@ -213,15 +216,48 @@ class MainActivity : AppCompatActivity() {
         }
         layout.addView(crosshairLabel)
         
+        // Create output crosshair container first (before main switch that references it)
+        outputCrosshairContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE  // Hidden by default
+            setPadding(32, 8, 0, 0)  // Indent to show it's a sub-option
+        }
+        
+        val outputCrosshairLabel = TextView(this).apply {
+            text = "Show Crosshair in Output:"
+            textSize = 14f
+            setPadding(0, 8, 0, 8)
+        }
+        outputCrosshairContainer.addView(outputCrosshairLabel)
+        
+        outputCrosshairSwitch = Switch(this).apply {
+            isChecked = false  // Default OFF
+            text = if (isChecked) "ON" else "OFF"
+            setOnCheckedChangeListener { _, isChecked ->
+                showOutputCrosshair = isChecked
+                text = if (isChecked) "ON" else "OFF"
+            }
+        }
+        outputCrosshairContainer.addView(outputCrosshairSwitch)
+        
         crosshairSwitch = Switch(this).apply {
             isChecked = false  // Default OFF
             text = if (isChecked) "ON" else "OFF"
             setOnCheckedChangeListener { _, isChecked ->
                 showCrosshair = isChecked
                 text = if (isChecked) "ON" else "OFF"
+                // Show/hide output crosshair option
+                outputCrosshairContainer.visibility = if (isChecked) View.VISIBLE else View.GONE
+                // Reset output crosshair when main crosshair is disabled
+                if (!isChecked) {
+                    showOutputCrosshair = false
+                    outputCrosshairSwitch.isChecked = false
+                    outputCrosshairSwitch.text = "OFF"
+                }
             }
         }
         layout.addView(crosshairSwitch)
+        layout.addView(outputCrosshairContainer)
         
         // Zoom slider toggle
         zoomSliderSwitch = Switch(this).apply {

@@ -7,6 +7,7 @@ import android.graphics.drawable.GradientDrawable
 import android.view.*
 import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.TextView
 import com.example.bis.config.MagnifierConfig
 import com.example.bis.config.MagnifierShape
 import com.example.bis.filter.ColorFilterProcessor
@@ -26,6 +27,7 @@ class OutputWindowOverlay(
     private lateinit var magnifierImageView: ImageView
     private lateinit var layoutParams: WindowManager.LayoutParams
     private var isAttached = false
+    private var crosshairView: TextView? = null
     
     // Touch handling
     private var initialX = 0
@@ -145,6 +147,11 @@ class OutputWindowOverlay(
             }
             addView(magnifierImageView)
             
+            // Add crosshair overlay if enabled
+            if (config.showOutputCrosshair) {
+                addCrosshair(this)
+            }
+            
             // Only enable dragging if configured
             if (config.isOutputDraggable) {
                 setOnTouchListener(TouchListener())
@@ -163,6 +170,30 @@ class OutputWindowOverlay(
             x = config.outputPosition.x
             y = config.outputPosition.y
         }
+    }
+    
+    /**
+     * Add a crosshair in the center of the output window
+     */
+    private fun addCrosshair(parent: FrameLayout) {
+        crosshairView = TextView(context).apply {
+            text = "+"
+            textSize = 24f
+            setTextColor(config.crosshairColor)
+            gravity = Gravity.CENTER
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.CENTER
+            }
+            // Make crosshair non-interactive
+            isClickable = false
+            isFocusable = false
+            // Set high elevation to ensure it appears above the image
+            elevation = 10f
+        }
+        parent.addView(crosshairView)
     }
     
     /**

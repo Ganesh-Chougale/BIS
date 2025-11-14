@@ -22,6 +22,7 @@ class InputSelectorOverlay(
     private lateinit var overlayView: FrameLayout
     private lateinit var layoutParams: WindowManager.LayoutParams
     private var isAttached = false
+    private var crosshairView: TextView? = null
     
     // Touch handling
     private var initialX = 0
@@ -94,66 +95,85 @@ class InputSelectorOverlay(
     /**
      * Create the overlay view
      */
-    private fun createView() {
-        overlayView = FrameLayout(context).apply {
-            layoutParams = ViewGroup.LayoutParams(config.inputSize, config.inputSize)
-            
-            // Green border with semi-transparent fill
-            val drawable = GradientDrawable().apply {
-                // Make it circular if shape is CIRCLE
-                if (config.shape == MagnifierShape.CIRCLE) {
-                    cornerRadius = (config.inputSize / 2).toFloat()
-                }
+private fun createView() {
+    overlayView = FrameLayout(context).apply {
+        layoutParams = ViewGroup.LayoutParams(config.inputSize, config.inputSize)
+
+        // Circle support
+        val drawable = GradientDrawable().apply {
+            if (config.shape == MagnifierShape.CIRCLE) {
+                cornerRadius = (config.inputSize / 2f)
             }
-            background = drawable
-            
-            // Add crosshair in center (for better targeting) if enabled
-            if (config.showCrosshair) {
-                addCrosshair(this)
-            }
-            
-            // Only enable dragging if configured
-            if (config.isInputDraggable) {
-                setOnTouchListener(TouchListener())
-            }
+            setColor(Color.TRANSPARENT) // no border
         }
-        
-        // Window layout parameters
-        layoutParams = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            
-            // Set initial position from config or center of screen
-            if (config.inputX == 0 && config.inputY == 0) {
-                config.inputX = config.screenWidth / 2 - config.inputSize / 2
-                config.inputY = config.screenHeight / 2 - config.inputSize / 2
-            }
-            
-            x = config.inputX
-            y = config.inputY
+        background = drawable
+
+        if (config.showCrosshair) addCrosshair(this)
+
+        if (config.isInputDraggable) {
+            setOnTouchListener(TouchListener())
         }
     }
-    
+
+    // IMPORTANT FIX: use exact size so gravity CENTER works
+    layoutParams = WindowManager.LayoutParams(
+        config.inputSize,
+        config.inputSize,
+        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+        PixelFormat.TRANSLUCENT
+    ).apply {
+
+if (config.inputX == 0 && config.inputY == 0) {
+    // compute real center manually
+    val cx = (config.screenWidth - config.inputSize) / 2
+    val cy = (config.screenHeight - config.inputSize) / 2
+
+    config.inputX = cx
+    config.inputY = cy
+
+    gravity = Gravity.TOP or Gravity.START
+    x = cx
+    y = cy
+} else {
+    gravity = Gravity.TOP or Gravity.START
+    x = config.inputX
+    y = config.inputY
+}
+
+    }
+}
     /**
      * Add a crosshair in the center for better targeting
      */
     private fun addCrosshair(parent: FrameLayout) {
-        val crosshair = TextView(context).apply {
-            text = "x"
-            textSize = 32f  // Slightly larger for better visibility
+        crosshairView = TextView(context).apply {
+            text = "+"
+            textSize = 36f  // Larger text size
             setTextColor(config.crosshairColor)
             gravity = Gravity.CENTER
+            textAlignment = View.TEXT_ALIGNMENT_CENTER
+            
+            // Use MATCH_PARENT to fill the entire input selector area
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
-            )
+            ).apply {
+                gravity = Gravity.CENTER
+            }
+            
+            // Make crosshair non-interactive
+            isClickable = false
+            isFocusable = false
+            
+            // Add some styling for better visibility
+            setBackgroundColor(Color.TRANSPARENT)
+            elevation = 10f
+            
+            // Add text shadow for better visibility
+            setShadowLayer(2f, 1f, 1f, Color.BLACK)
         }
-        parent.addView(crosshair)
+        parent.addView(crosshairView)
     }
     
     /**

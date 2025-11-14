@@ -19,7 +19,8 @@ data class MagnifierConfig(
     // Shape configuration
     var shape: MagnifierShape = MagnifierShape.SQUARE,
     
-    // Input selector (area to magnify)
+    // Input selector (area to magnify
+    // )
     var inputSize: Int = 200,  // Size of the input selection square/circle diameter
     var inputX: Int = 0,  // Will be set to screen center in OverlayService
     var inputY: Int = 0,  // Will be set to screen center in OverlayService
@@ -45,7 +46,8 @@ data class MagnifierConfig(
     var isWidgetDraggable: Boolean = false,
     
     // Display flags
-    var showCrosshair: Boolean = false,
+    var showCrosshair: Boolean = false,  // Crosshair in input (main toggle)
+    var showOutputCrosshair: Boolean = false,  // Crosshair in output window
     var crosshairColor: Int = Color.BLACK,  // Default black
     var colorFilterMode: String = "NORMAL",  // NORMAL, INVERSE, or MONOCHROME
     
