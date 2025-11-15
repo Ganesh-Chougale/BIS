@@ -1,0 +1,56 @@
+Signature-Version: 1.0
+Created-By: 1.0 (Android)
+SHA1-Digest-Manifest: fU0jzEchmOPIrbR0eLheQI+T6r4=
+X-Android-APK-Signed: 2, 3
+
+Name: AndroidManifest.xml
+SHA1-Digest: GGNl/mLxyyrdtAxxhgSleus9NaA=
+
+Name: META-INF/com/android/build/gradle/app-metadata.properties
+SHA1-Digest: 2h07eTyBksoc9EvGjfpgfuzT9DA=
+
+Name: META-INF/version-control-info.textproto
+SHA1-Digest: gSEqObdcQroxxiAfOTJhdOYeUYA=
+
+Name: assets/2xbr.shader
+SHA1-Digest: eg29yGcawX0Xo96w6RhgbYObcdU=
+
+Name: assets/4xbr.shader
+SHA1-Digest: xIggk5d8AE/RF4EWT17CCY/HFpM=
+
+Name: assets/gba-color.shader
+SHA1-Digest: diCYQ5/nzsXeEOmDydgJHG2gasg=
+
+Name: assets/grayscale.shader
+SHA1-Digest: B0AzFh2X3s54mM+kT+4SVxbLVAA=
+
+Name: assets/hq2x.shader
+SHA1-Digest: mbJgcEGOgughHO8OdtLwFwNRmGk=
+
+Name: assets/hq4x.shader
+SHA1-Digest: vTPVJGZFRb/I9PQmikJ+gqd8idA=
+
+Name: assets/lcd3x.shader
+SHA1-Digest: ExQ7aO0lzbdBQ2ECj/w8fDkrvSU=
+
+Name: assets/motion-blur.shader
+SHA1-Digest: PaLz8luk4f+UZ0kvXi+QiYMEhMM=
+
+Name: assets/quilez.shader
+SHA1-Digest: n+7ZbKpMGFHP/U+bja/nluM4iRo=
+
+Name: assets/scanlines.shader
+SHA1-Digest: lWrT4XPVUJd9Hri4ftzOOyvCdVI=
+
+Name: classes.dex
+SHA1-Digest: lWFhbxxE9jnr//M4gOf6p7FNmRk=
+
+Name: res/xml/splits0.xml
+SHA1-Digest: Hn8Fy/ibhymxWcVPKsqY5xl4+K4=
+
+Name: resources.arsc
+SHA1-Digest: JZbV2dwEC+W4Q6kO00k4MUiWHhs=
+
+Name: stamp-cert-sha256
+SHA1-Digest: Bs40BvDZ1xrbgQrPTD2x5w/NfHQ=
+

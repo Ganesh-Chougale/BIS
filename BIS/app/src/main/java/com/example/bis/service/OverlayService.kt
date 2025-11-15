@@ -5,23 +5,22 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
-import android.graphics.Point
 import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
 import android.util.DisplayMetrics
 import android.util.Log
+import android.view.MotionEvent
+import android.view.View
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.Toast
-
+import com.example.bis.capture.ScreenCaptureManager
 import com.example.bis.config.MagnifierConfig
 import com.example.bis.config.MagnifierShape
 import com.example.bis.overlay.InputSelectorOverlay
-import com.example.bis.overlay.OutputWindowOverlay
 import com.example.bis.overlay.ToggleWidgetOverlay
-import com.example.bis.overlay.ControlPanelOverlay
-import com.example.bis.capture.ScreenCaptureManager
+import com.example.bis.renderer.MagnifierSurfaceView
 import com.example.bis.slider.Slider
 import com.example.bis.slider.SliderFactory
 import com.example.bis.slider.model.SliderConfig
@@ -48,10 +47,9 @@ class OverlayService : Service() {
     private lateinit var windowManager: WindowManager
     private lateinit var screenCaptureManager: ScreenCaptureManager
     private lateinit var inputSelectorOverlay: InputSelectorOverlay
-    private lateinit var outputWindowOverlay: OutputWindowOverlay
+    private lateinit var magnifierSurfaceView: MagnifierSurfaceView
     private lateinit var toggleWidgetOverlay: ToggleWidgetOverlay
     private lateinit var zoomSlider: Slider
-
 
     override fun onCreate() {
         super.onCreate()
@@ -76,7 +74,9 @@ class OverlayService : Service() {
             config.screenDensity = resources.displayMetrics.densityDpi
 
         } else {
+            @Suppress("DEPRECATION")
             val metrics = DisplayMetrics()
+            @Suppress("DEPRECATION")
             windowManager.defaultDisplay.getMetrics(metrics)
 
             config.screenWidth = metrics.widthPixels
@@ -90,7 +90,9 @@ class OverlayService : Service() {
             context = this,
             config = config,
             onFrameAvailable = { bitmap ->
-                outputWindowOverlay.updateMagnifiedView(bitmap)
+                if (::magnifierSurfaceView.isInitialized) {
+                    magnifierSurfaceView.updateBitmap(bitmap)
+                }
             }
         )
 
@@ -107,13 +109,29 @@ class OverlayService : Service() {
 
         try {
             inputSelectorOverlay = InputSelectorOverlay(this, config, windowManager)
-            outputWindowOverlay = OutputWindowOverlay(
-                context = this,
-                config = config,
-                windowManager = windowManager,
-                onPositionChanged = { onOutputPositionChanged() },
-                onTouched = { onOutputWindowTouched() }
-            )
+
+            magnifierSurfaceView = MagnifierSurfaceView(this).apply {
+                if (config.isOutputDraggable) {
+                    this.setOnTouchListener(OutputTouchListener())
+                }
+                val layoutParams = WindowManager.LayoutParams(
+                    config.outputSize,
+                    config.outputSize,
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                    } else {
+                        @Suppress("DEPRECATION")
+                        WindowManager.LayoutParams.TYPE_PHONE
+                    },
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+                    android.graphics.PixelFormat.TRANSLUCENT
+                )
+                layoutParams.gravity = android.view.Gravity.TOP or android.view.Gravity.START
+                layoutParams.x = config.outputPosition.x
+                layoutParams.y = config.outputPosition.y
+                this.layoutParams = layoutParams
+            }
+
             toggleWidgetOverlay = ToggleWidgetOverlay(
                 context = this,
                 config = config,
@@ -133,7 +151,7 @@ class OverlayService : Service() {
             )
 
             inputSelectorOverlay.show()
-            outputWindowOverlay.show()
+            windowManager.addView(magnifierSurfaceView, magnifierSurfaceView.layoutParams)
             toggleWidgetOverlay.show()
             zoomSlider.show()
 
@@ -147,11 +165,11 @@ class OverlayService : Service() {
 
         if (config.isMagnifying) {
             inputSelectorOverlay.reveal()
-            outputWindowOverlay.reveal()
+            magnifierSurfaceView.visibility = View.VISIBLE
             zoomSlider.setVisibility(false)
         } else {
             inputSelectorOverlay.hide()
-            outputWindowOverlay.hide()
+            magnifierSurfaceView.visibility = View.GONE
             zoomSlider.setVisibility(false)
         }
 
@@ -159,7 +177,7 @@ class OverlayService : Service() {
     }
 
     private fun onZoomChanged() {
-        outputWindowOverlay.updateSize()
+        // This might be needed if zoom affects shader parameters in the future
     }
 
     private fun onOutputPositionChanged() {
@@ -171,6 +189,48 @@ class OverlayService : Service() {
     private fun onOutputWindowTouched() {
         if (config.isMagnifying && ::zoomSlider.isInitialized) {
             (zoomSlider as? SquareSlider)?.showWithTimeout()
+        }
+    }
+
+    /**
+     * Touch listener for dragging the output window
+     */
+    private inner class OutputTouchListener : View.OnTouchListener {
+        private var initialX = 0
+        private var initialY = 0
+        private var initialTouchX = 0f
+        private var initialTouchY = 0f
+
+        override fun onTouch(v: View?, event: MotionEvent): Boolean {
+            val layoutParams = v?.layoutParams as? WindowManager.LayoutParams ?: return false
+
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    initialX = layoutParams.x
+                    initialY = layoutParams.y
+                    initialTouchX = event.rawX
+                    initialTouchY = event.rawY
+                    onOutputWindowTouched()
+                    return true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val newX = initialX + (event.rawX - initialTouchX).toInt()
+                    val newY = initialY + (event.rawY - initialTouchY).toInt()
+
+                    config.outputPosition.x = newX
+                    config.outputPosition.y = newY
+
+                    layoutParams.x = newX
+                    layoutParams.y = newY
+                    windowManager.updateViewLayout(v, layoutParams)
+
+                    onOutputPositionChanged()
+                    onOutputWindowTouched()
+
+                    return true
+                }
+            }
+            return false
         }
     }
 
@@ -193,11 +253,24 @@ class OverlayService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == "STOP_SERVICE") {
-            performCompleteCleanup()
-            stopForeground(true)
-            stopSelf()
-            return START_NOT_STICKY
+        when (intent?.action) {
+            "STOP_SERVICE" -> {
+                performCompleteCleanup()
+                stopForeground(true)
+                stopSelf()
+                return START_NOT_STICKY
+            }
+            "UPDATE_OUTPUT_SIZE" -> {
+                if (::magnifierSurfaceView.isInitialized) {
+                    val newSize = intent.getIntExtra("OUTPUT_SIZE", config.outputSize)
+                    config.outputSize = newSize
+                    val layoutParams = magnifierSurfaceView.layoutParams as WindowManager.LayoutParams
+                    layoutParams.width = newSize
+                    layoutParams.height = newSize
+                    windowManager.updateViewLayout(magnifierSurfaceView, layoutParams)
+                }
+                return START_NOT_STICKY
+            }
         }
 
         if (intent?.action == "START_CAPTURE") {
@@ -216,6 +289,7 @@ class OverlayService : Service() {
                 val isWidgetDraggable = intent.getBooleanExtra("WIDGET_DRAGGABLE", false)
                 val showCrosshair = intent.getBooleanExtra("SHOW_CROSSHAIR", false)
                 val showOutputCrosshair = intent.getBooleanExtra("SHOW_OUTPUT_CROSSHAIR", false)
+                val shaderName = intent.getStringExtra("SHADER") ?: ""
 
                 config.shape = MagnifierShape.valueOf(shapeName)
                 config.inputSize = inputSize
@@ -246,7 +320,10 @@ class OverlayService : Service() {
 
                     config.isMagnifying = true
                     inputSelectorOverlay.reveal()
-                    outputWindowOverlay.reveal()
+                    magnifierSurfaceView.visibility = View.VISIBLE
+                    if (shaderName.isNotEmpty()) {
+                        magnifierSurfaceView.setShader(shaderName) // Set initial shader only if not empty
+                    }
                     toggleWidgetOverlay.updateIcon(true)
                 }
 
@@ -272,6 +349,7 @@ class OverlayService : Service() {
         val notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, channelId)
         } else {
+            @Suppress("DEPRECATION")
             Notification.Builder(this)
         }
             .setContentTitle("Screen Magnifier")
@@ -291,9 +369,8 @@ class OverlayService : Service() {
                 inputSelectorOverlay.hide()
                 inputSelectorOverlay.remove()
             }
-            if (::outputWindowOverlay.isInitialized) {
-                outputWindowOverlay.hide()
-                outputWindowOverlay.remove()
+            if (::magnifierSurfaceView.isInitialized) {
+                windowManager.removeView(magnifierSurfaceView)
             }
             if (::toggleWidgetOverlay.isInitialized) {
                 toggleWidgetOverlay.remove()

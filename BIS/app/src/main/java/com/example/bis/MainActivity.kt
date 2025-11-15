@@ -56,6 +56,7 @@ class MainActivity : AppCompatActivity() {
     private var maxZoom = 6.0f
     private var crosshairColor = Color.BLACK
     private var colorFilterMode = "NORMAL"  // NORMAL, INVERSE, or MONOCHROME
+    private var selectedShader = "" // Empty string means no shader
     
     companion object {
         private const val REQUEST_MEDIA_PROJECTION = 1001
@@ -400,6 +401,33 @@ class MainActivity : AppCompatActivity() {
         
         colorFilterOptionsContainer.addView(filterRadioGroup)
         layout.addView(colorFilterOptionsContainer)
+
+        // Shader selector section
+        val shaderLabel = TextView(this).apply {
+            text = "Select Shader:"
+            textSize = 16f
+            setPadding(0, 24, 0, 8)
+        }
+        layout.addView(shaderLabel)
+
+        val shaderFiles = try { assets.list("shaders") ?: arrayOf() } catch (e: Exception) { arrayOf() }
+        val shaders = arrayOf("Default 2xbr") + shaderFiles
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, shaders)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+
+        val shaderSpinner = Spinner(this).apply {
+            this.adapter = adapter
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    selectedShader = if (position == 0) "" else shaders[position]
+                }
+
+                override fun onNothingSelected(parent: AdapterView<*>?) {
+                    selectedShader = ""
+                }
+            }
+        }
+        layout.addView(shaderSpinner)
         
         // Update switch listener to show/hide options
         colorFilterSwitch.setOnCheckedChangeListener { _, isChecked ->
@@ -553,6 +581,7 @@ class MainActivity : AppCompatActivity() {
                     putExtra("SHOW_ZOOM_SLIDER", showZoomSlider)
                     putExtra("MIN_ZOOM", minZoom)
                     putExtra("MAX_ZOOM", maxZoom)
+                    putExtra("SHADER", selectedShader)
                 }
                 startService(captureIntent)
                 
