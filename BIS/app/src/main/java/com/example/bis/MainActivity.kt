@@ -3,46 +3,29 @@ package com.example.bis
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
-import android.media.projection.MediaProjectionManager
-import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
-import android.view.Gravity
 import android.view.Menu
 import android.view.MenuItem
-import android.view.View
-import android.widget.*
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.bis.config.MagnifierShape
+import com.example.bis.pkgs.main_activity_pkg.ButtonHandle_MainActivity
+import com.example.bis.pkgs.main_activity_pkg.Permission_MainActivity
+import com.example.bis.pkgs.main_activity_pkg.Service_MainActivity
+import com.example.bis.pkgs.main_activity_pkg.UI_MainActivity
 import com.example.bis.service.OverlayService
 
 class MainActivity : AppCompatActivity() {
-    private var isServiceRunning = false
-    private lateinit var toggleButton: Button
-    private lateinit var mediaProjectionManager: MediaProjectionManager
     
-    // Configuration UI
-    private lateinit var shapeRadioGroup: RadioGroup
-    private lateinit var squareRadio: RadioButton
-    private lateinit var circleRadio: RadioButton
-    private lateinit var sizeSeekBar: SeekBar
-    private lateinit var sizeLabel: TextView
-    private lateinit var outputSizeSeekBar: SeekBar
-    private lateinit var outputSizeLabel: TextView
-    private lateinit var inputDraggableSwitch: Switch
-    private lateinit var outputDraggableSwitch: Switch
-    private lateinit var widgetDraggableSwitch: Switch
-    private lateinit var crosshairSwitch: Switch
-    private lateinit var outputCrosshairSwitch: Switch
-    private lateinit var outputCrosshairContainer: LinearLayout
-    private lateinit var zoomSliderSwitch: Switch
-    private lateinit var minZoomSeekBar: SeekBar
-    private lateinit var minZoomLabel: TextView
-    private lateinit var maxZoomSeekBar: SeekBar
-    private lateinit var maxZoomLabel: TextView
-    private lateinit var zoomRangeContainer: LinearLayout
+    // Helper classes for SRP
+    private lateinit var uiManager: UI_MainActivity
+    private lateinit var permissionManager: Permission_MainActivity
+    private lateinit var serviceManager: Service_MainActivity
+    private lateinit var buttonHandler: ButtonHandle_MainActivity
     
+    // Configuration state
     private var selectedShape = MagnifierShape.SQUARE
     private var selectedSize = 200
     private var selectedOutputSize = 500
@@ -55,498 +38,70 @@ class MainActivity : AppCompatActivity() {
     private var minZoom = 1.5f
     private var maxZoom = 6.0f
     private var crosshairColor = Color.BLACK
-    private var colorFilterMode = "NORMAL"  // NORMAL, INVERSE, or MONOCHROME
-    private var selectedShader = "" // Empty string means no shader
+    private var colorFilterMode = "NORMAL"
+    private var selectedShader = ""
+    
+    // For handling screen capture result
+    private var pendingCaptureData: Intent? = null
     
     companion object {
         private const val REQUEST_MEDIA_PROJECTION = 1001
+        private const val TAG = "MainActivity"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        mediaProjectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        // Initialize helper classes
+        uiManager = UI_MainActivity(this)
+        permissionManager = Permission_MainActivity(this)
+        serviceManager = Service_MainActivity(this)
+        buttonHandler = ButtonHandle_MainActivity(this)
         
-        // Create main content layout
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(32, 32, 32, 32)
-        }
-        
-        // Wrap in ScrollView for landscape mode
-        val scrollView = ScrollView(this).apply {
-            addView(layout)
-        }
-        
-        // Shape selector section
-        val shapeLabel = TextView(this).apply {
-            text = "Select Shape:"
-            textSize = 16f
-            setPadding(0, 16, 0, 8)
-        }
-        layout.addView(shapeLabel)
-        
-        shapeRadioGroup = RadioGroup(this).apply {
-            orientation = RadioGroup.HORIZONTAL
-            
-            squareRadio = RadioButton(this@MainActivity).apply {
-                id = View.generateViewId()
-                text = "Square"
-                isChecked = true
-            }
-            addView(squareRadio)
-            
-            circleRadio = RadioButton(this@MainActivity).apply {
-                id = View.generateViewId()
-                text = "Circle"
-            }
-            addView(circleRadio)
-            
-            setOnCheckedChangeListener { _, checkedId ->
-                selectedShape = when (checkedId) {
-                    circleRadio.id -> MagnifierShape.CIRCLE
-                    else -> MagnifierShape.SQUARE
-                }
-            }
-        }
-        layout.addView(shapeRadioGroup)
-        
-        // Size selector section
-        sizeLabel = TextView(this).apply {
-            text = "Input Size: 200px"
-            textSize = 16f
-            setPadding(0, 24, 0, 8)
-        }
-        layout.addView(sizeLabel)
-        
-        sizeSeekBar = SeekBar(this).apply {
-            max = 400  // 100 to 500 (we'll add 100 to the value)
-            progress = 100  // Default 200px
-            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                    selectedSize = progress + 100
-                    sizeLabel.text = "Input Size: ${selectedSize}px"
-                }
-                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-                override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-            })
-        }
-        layout.addView(sizeSeekBar)
-        
-        // Output size selector section
-        outputSizeLabel = TextView(this).apply {
-            text = "Output Size: 500px"
-            textSize = 16f
-            setPadding(0, 24, 0, 8)
-        }
-        layout.addView(outputSizeLabel)
-        
-        outputSizeSeekBar = SeekBar(this).apply {
-            max = 700  // 300 to 1000 (we'll add 300 to the value)
-            progress = 200  // Default 500px
-            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                    selectedOutputSize = progress + 300
-                    outputSizeLabel.text = "Output Size: ${selectedOutputSize}px"
-                }
-                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-                override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-            })
-        }
-        layout.addView(outputSizeSeekBar)
-        
-        // Input window draggable toggle
-        val inputDraggableLabel = TextView(this).apply {
-            text = "Input Window Draggable:"
-            textSize = 16f
-            setPadding(0, 24, 0, 8)
-        }
-        layout.addView(inputDraggableLabel)
-        
-        inputDraggableSwitch = Switch(this).apply {
-            isChecked = false  // Default OFF
-            text = if (isChecked) "ON" else "OFF"
-            setOnCheckedChangeListener { _, isChecked ->
-                isInputDraggable = isChecked
-                text = if (isChecked) "ON" else "OFF"
-            }
-        }
-        layout.addView(inputDraggableSwitch)
-        
-        // Output window draggable toggle
-        val outputDraggableLabel = TextView(this).apply {
-            text = "Output Window Draggable:"
-            textSize = 16f
-            setPadding(0, 24, 0, 8)
-        }
-        layout.addView(outputDraggableLabel)
-        
-        outputDraggableSwitch = Switch(this).apply {
-            isChecked = true  // Default ON
-            text = if (isChecked) "ON" else "OFF"
-            setOnCheckedChangeListener { _, isChecked ->
-                isOutputDraggable = isChecked
-                text = if (isChecked) "ON" else "OFF"
-            }
-        }
-        layout.addView(outputDraggableSwitch)
-        
-        // Widget draggable toggle
-        val widgetDraggableLabel = TextView(this).apply {
-            text = "Widget Draggable:"
-            textSize = 16f
-            setPadding(0, 24, 0, 8)
-        }
-        layout.addView(widgetDraggableLabel)
-        
-        widgetDraggableSwitch = Switch(this).apply {
-            isChecked = false  // Default OFF
-            text = if (isChecked) "ON" else "OFF"
-            setOnCheckedChangeListener { _, isChecked ->
-                isWidgetDraggable = isChecked
-                text = if (isChecked) "ON" else "OFF"
-            }
-        }
-        layout.addView(widgetDraggableSwitch)
-        
-        // Crosshair toggle
-        val crosshairLabel = TextView(this).apply {
-            text = "Show Crosshair in Input:"
-            textSize = 16f
-            setPadding(0, 24, 0, 8)
-        }
-        layout.addView(crosshairLabel)
-        
-        // Create output crosshair container first (before main switch that references it)
-        outputCrosshairContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            visibility = View.GONE  // Hidden by default
-            setPadding(32, 8, 0, 0)  // Indent to show it's a sub-option
-        }
-        
-        val outputCrosshairLabel = TextView(this).apply {
-            text = "Show Crosshair in Output:"
-            textSize = 14f
-            setPadding(0, 8, 0, 8)
-        }
-        outputCrosshairContainer.addView(outputCrosshairLabel)
-        
-        outputCrosshairSwitch = Switch(this).apply {
-            isChecked = false  // Default OFF
-            text = if (isChecked) "ON" else "OFF"
-            setOnCheckedChangeListener { _, isChecked ->
-                showOutputCrosshair = isChecked
-                text = if (isChecked) "ON" else "OFF"
-            }
-        }
-        outputCrosshairContainer.addView(outputCrosshairSwitch)
-        
-        crosshairSwitch = Switch(this).apply {
-            isChecked = false  // Default OFF
-            text = if (isChecked) "ON" else "OFF"
-            setOnCheckedChangeListener { _, isChecked ->
-                showCrosshair = isChecked
-                text = if (isChecked) "ON" else "OFF"
-                // Show/hide output crosshair option
-                outputCrosshairContainer.visibility = if (isChecked) View.VISIBLE else View.GONE
-                // Reset output crosshair when main crosshair is disabled
-                if (!isChecked) {
-                    showOutputCrosshair = false
-                    outputCrosshairSwitch.isChecked = false
-                    outputCrosshairSwitch.text = "OFF"
-                }
-            }
-        }
-        layout.addView(crosshairSwitch)
-        layout.addView(outputCrosshairContainer)
-        
-        // Zoom slider toggle
-        zoomSliderSwitch = Switch(this).apply {
-            isChecked = false  // Default OFF
-            textSize = 16f
-            text = if (isChecked) "Show Zoom Slider ON" else "Show Zoom Slider OFF"
-            setOnCheckedChangeListener { _, isChecked ->
-                showZoomSlider = isChecked
-                text = if (isChecked) "Show Zoom Slider ON" else "Show Zoom Slider OFF"
-                // Show/hide zoom range controls
-                zoomRangeContainer.visibility = if (isChecked) View.VISIBLE else View.GONE
-            }
-        }
-        layout.addView(zoomSliderSwitch)
-        
-        // Zoom range container (initially hidden)
-        zoomRangeContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            visibility = View.GONE  // Hidden by default
-        }
-        
-        // Minimum zoom selector
-        minZoomLabel = TextView(this).apply {
-            text = "Minimum Zoom: 1.5x"
-            textSize = 16f
-            setPadding(0, 24, 0, 8)
-        }
-        zoomRangeContainer.addView(minZoomLabel)
-        
-        minZoomSeekBar = SeekBar(this).apply {
-            max = 20  // 1.0x to 3.0x in 0.1 steps (20 steps)
-            progress = 5  // Default 1.5x (1.0 + 0.5 = 1.5)
-            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                    minZoom = 1.0f + (progress * 0.1f)
-                    minZoomLabel.text = String.format("Minimum Zoom: %.1fx", minZoom)
-                    // Ensure min is always less than max
-                    if (minZoom >= maxZoom) {
-                        maxZoom = minZoom + 0.5f
-                        maxZoomSeekBar.progress = ((maxZoom - 3.0f) / 0.1f).toInt()
-                        maxZoomLabel.text = String.format("Maximum Zoom: %.1fx", maxZoom)
-                    }
-                }
-                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-                override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-            })
-        }
-        zoomRangeContainer.addView(minZoomSeekBar)
-        
-        // Maximum zoom selector
-        maxZoomLabel = TextView(this).apply {
-            text = "Maximum Zoom: 6.0x"
-            textSize = 16f
-            setPadding(0, 24, 0, 8)
-        }
-        zoomRangeContainer.addView(maxZoomLabel)
-        
-        maxZoomSeekBar = SeekBar(this).apply {
-            max = 70  // 3.0x to 10.0x in 0.1 steps (70 steps)
-            progress = 30  // Default 6.0x (3.0 + 3.0 = 6.0)
-            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                    maxZoom = 3.0f + (progress * 0.1f)
-                    maxZoomLabel.text = String.format("Maximum Zoom: %.1fx", maxZoom)
-                    // Ensure max is always greater than min
-                    if (maxZoom <= minZoom) {
-                        minZoom = maxZoom - 0.5f
-                        minZoomSeekBar.progress = ((minZoom - 1.0f) / 0.1f).toInt()
-                        minZoomLabel.text = String.format("Minimum Zoom: %.1fx", minZoom)
-                    }
-                }
-                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-                override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-            })
-        }
-        zoomRangeContainer.addView(maxZoomSeekBar)
-        
-        // Add zoom range container to main layout
-        layout.addView(zoomRangeContainer)
-        
-        // Color filter enable/disable switch
-        val colorFilterSwitch = Switch(this).apply {
-            text = "Color Filter: OFF"
-            textSize = 16f
-            isChecked = false
-            setOnCheckedChangeListener { _, isChecked ->
-                text = if (isChecked) "Color Filter: ON" else "Color Filter: OFF"
-                // Show/hide filter options
-                findViewById<LinearLayout>(View.generateViewId())?.apply {
-                    visibility = if (isChecked) View.VISIBLE else View.GONE
-                }
-                // Reset to normal if disabled
-                if (!isChecked) {
-                    colorFilterMode = "NORMAL"
-                }
-            }
-        }
-        layout.addView(colorFilterSwitch)
-        
-        // Color filter options container (initially hidden)
-        val colorFilterOptionsContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            visibility = View.GONE
-            id = View.generateViewId()
-            setPadding(32, 8, 0, 0)
-        }
-        
-        val filterTypeLabel = TextView(this).apply {
-            text = "Select Filter Type:"
-            textSize = 14f
-            setPadding(0, 8, 0, 8)
-        }
-        colorFilterOptionsContainer.addView(filterTypeLabel)
-        
-        // Radio group for filter types
-        val filterRadioGroup = RadioGroup(this).apply {
-            orientation = RadioGroup.VERTICAL
-        }
-        
-        val inverseRadio = RadioButton(this).apply {
-            id = View.generateViewId()
-            text = "Inverse Colors"
-            isChecked = true  // Default selection
-        }
-        filterRadioGroup.addView(inverseRadio)
-        
-        val monochromeRadio = RadioButton(this).apply {
-            id = View.generateViewId()
-            text = "Monochrome (Grayscale)"
-        }
-        filterRadioGroup.addView(monochromeRadio)
-        
-        // Handle radio button selection
-        filterRadioGroup.setOnCheckedChangeListener { _, checkedId ->
-            colorFilterMode = when (checkedId) {
-                monochromeRadio.id -> "MONOCHROME"
-                else -> "INVERSE"
-            }
-        }
-        
-        colorFilterOptionsContainer.addView(filterRadioGroup)
-        layout.addView(colorFilterOptionsContainer)
-
-        // Shader selector section
-        val shaderLabel = TextView(this).apply {
-            text = "Select Shader:"
-            textSize = 16f
-            setPadding(0, 24, 0, 8)
-        }
-        layout.addView(shaderLabel)
-
-        val shaderFiles = try { assets.list("shaders") ?: arrayOf() } catch (e: Exception) { arrayOf() }
-        val shaders = arrayOf("Default 2xbr") + shaderFiles
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, shaders)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-
-        val shaderSpinner = Spinner(this).apply {
-            this.adapter = adapter
-            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                    selectedShader = if (position == 0) "" else shaders[position]
-                }
-
-                override fun onNothingSelected(parent: AdapterView<*>?) {
-                    selectedShader = ""
-                }
-            }
-        }
-        layout.addView(shaderSpinner)
-        
-        // Update switch listener to show/hide options
-        colorFilterSwitch.setOnCheckedChangeListener { _, isChecked ->
-            colorFilterSwitch.text = if (isChecked) "Color Filter: ON" else "Color Filter: OFF"
-            colorFilterOptionsContainer.visibility = if (isChecked) View.VISIBLE else View.GONE
-            
-            if (isChecked) {
-                // Set to selected filter type
-                colorFilterMode = when (filterRadioGroup.checkedRadioButtonId) {
-                    monochromeRadio.id -> "MONOCHROME"
-                    else -> "INVERSE"
-                }
-            } else {
-                // Reset to normal
-                colorFilterMode = "NORMAL"
-            }
-        }
-        
-        // Toggle button
-        toggleButton = Button(this).apply {
-            text = "Start Magnifier"
-            textSize = 18f
-            gravity = Gravity.CENTER
-            setBackgroundColor(Color.parseColor("#4CAF50")) // Green
-            setTextColor(Color.WHITE)
-            setPadding(32, 32, 32, 32)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                setMargins(0, 32, 0, 0)
-            }
-            setOnClickListener {
-                if (Settings.canDrawOverlays(this@MainActivity)) {
-                    toggleService()
-                } else {
-                    requestOverlayPermission()
-                }
-            }
-        }
-        layout.addView(toggleButton)
-        
-        // About button
-        val aboutButton = Button(this).apply {
-            text = "About"
-            textSize = 16f
-            gravity = Gravity.CENTER
-            setBackgroundColor(Color.parseColor("#2196F3")) // Blue
-            setTextColor(Color.WHITE)
-            setPadding(32, 24, 32, 24)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                setMargins(0, 16, 0, 0)
-            }
-            setOnClickListener {
-                startActivity(Intent(this@MainActivity, AboutActivity::class.java))
-            }
-        }
-        layout.addView(aboutButton)
-        
-        // Exit App button
-        val exitButton = Button(this).apply {
-            text = "Exit App"
-            textSize = 16f
-            gravity = Gravity.CENTER
-            setBackgroundColor(Color.parseColor("#F44336")) // Red
-            setTextColor(Color.WHITE)
-            setPadding(32, 24, 32, 24)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                setMargins(0, 16, 0, 32)
-            }
-            setOnClickListener {
-                exitAppCompletely()
-            }
-        }
-        layout.addView(exitButton)
+        // Create UI with callbacks
+        val scrollView = uiManager.createMainLayout(
+            onShapeChanged = { selectedShape = it },
+            onSizeChanged = { selectedSize = it },
+            onOutputSizeChanged = { selectedOutputSize = it },
+            onInputDraggableChanged = { isInputDraggable = it },
+            onOutputDraggableChanged = { isOutputDraggable = it },
+            onWidgetDraggableChanged = { isWidgetDraggable = it },
+            onCrosshairChanged = { showCrosshair = it },
+            onOutputCrosshairChanged = { showOutputCrosshair = it },
+            onZoomSliderChanged = { showZoomSlider = it },
+            onMinZoomChanged = { minZoom = it },
+            onMaxZoomChanged = { maxZoom = it },
+            onColorFilterChanged = { colorFilterMode = it },
+            onShaderChanged = { selectedShader = it },
+            onToggleClicked = { handleToggleButtonClick() },
+            onAboutClicked = { buttonHandler.handleAboutButtonClick() },
+            onExitClicked = { buttonHandler.handleExitButtonClick(serviceManager) }
+        )
         
         setContentView(scrollView)
     }
     
-    private fun toggleService() {
-        if (isServiceRunning) {
-            val stopIntent = Intent(this, OverlayService::class.java).apply {
-                action = "STOP_SERVICE"
+    private fun handleToggleButtonClick() {
+        if (permissionManager.canDrawOverlays()) {
+            if (serviceManager.isRunning()) {
+                serviceManager.stopService()
+                uiManager.toggleButton.text = "Start Magnifier"
+            } else {
+                serviceManager.startScreenCapture()
             }
-            startService(stopIntent)
-            toggleButton.text = "Start Magnifier"
-            isServiceRunning = false
         } else {
-            // Request screen capture permission
-            startActivityForResult(
-                mediaProjectionManager.createScreenCaptureIntent(),
-                REQUEST_MEDIA_PROJECTION
-            )
+            permissionManager.requestOverlayPermission()
         }
-    }
-    
-    private fun requestOverlayPermission() {
-        val intent = Intent(
-            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-            Uri.parse("package:$packageName")
-        )
-        startActivity(intent)
     }
     
     override fun onResume() {
         super.onResume()
-        if (!Settings.canDrawOverlays(this)) {
-            toggleButton.text = "Grant Permission First"
-            isServiceRunning = false
+        if (!permissionManager.canDrawOverlays()) {
+            uiManager.toggleButton.text = "Grant Permission First"
+            serviceManager.setRunning(false)
         } else {
-            // Permission is granted, update button text
-            if (!isServiceRunning) {
-                toggleButton.text = "Start Magnifier"
+            if (!serviceManager.isRunning()) {
+                uiManager.toggleButton.text = "Start Magnifier"
             }
         }
     }
@@ -555,41 +110,30 @@ class MainActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQUEST_MEDIA_PROJECTION) {
             if (resultCode == Activity.RESULT_OK && data != null) {
-                Log.d("MainActivity", "Got permission: resultCode=$resultCode (${Activity.RESULT_OK})")
-                Toast.makeText(this, "Permission granted, initializing...", Toast.LENGTH_SHORT).show()
+                Log.d(TAG, "Got permission: resultCode=$resultCode (${Activity.RESULT_OK})")
                 
-                // Store the capture data in service companion object
-                OverlayService.setPendingCaptureData(data)
+                // Start magnifier with current configuration
+                serviceManager.startMagnifier(
+                    selectedShape = selectedShape,
+                    selectedSize = selectedSize,
+                    selectedOutputSize = selectedOutputSize,
+                    isInputDraggable = isInputDraggable,
+                    isOutputDraggable = isOutputDraggable,
+                    isWidgetDraggable = isWidgetDraggable,
+                    showCrosshair = showCrosshair,
+                    crosshairColor = crosshairColor,
+                    colorFilterMode = colorFilterMode,
+                    showZoomSlider = showZoomSlider,
+                    minZoom = minZoom,
+                    maxZoom = maxZoom,
+                    selectedShader = selectedShader,
+                    captureData = data
+                )
                 
-                Log.d("MainActivity", "Sending config - isWidgetDraggable: $isWidgetDraggable")
-                
-                // Send the capture command to the service with configuration
-                val captureIntent = Intent(this, OverlayService::class.java).apply {
-                    action = "START_CAPTURE"
-                    // Pass Activity.RESULT_OK as the MediaProjection result code
-                    putExtra("RESULT_CODE", Activity.RESULT_OK)
-                    // Pass shape and size configuration
-                    putExtra("SHAPE", selectedShape.name)
-                    putExtra("INPUT_SIZE", selectedSize)
-                    putExtra("OUTPUT_SIZE", selectedOutputSize)
-                    putExtra("INPUT_DRAGGABLE", isInputDraggable)
-                    putExtra("OUTPUT_DRAGGABLE", isOutputDraggable)
-                    putExtra("WIDGET_DRAGGABLE", isWidgetDraggable)
-                    putExtra("SHOW_CROSSHAIR", showCrosshair)
-                    putExtra("CROSSHAIR_COLOR", crosshairColor)
-                    putExtra("COLOR_FILTER_MODE", colorFilterMode)
-                    putExtra("SHOW_ZOOM_SLIDER", showZoomSlider)
-                    putExtra("MIN_ZOOM", minZoom)
-                    putExtra("MAX_ZOOM", maxZoom)
-                    putExtra("SHADER", selectedShader)
-                }
-                startService(captureIntent)
-                
-                isServiceRunning = true
-                toggleButton.text = "Stop Magnifier"
+                uiManager.toggleButton.text = "Stop Magnifier"
             } else {
                 Toast.makeText(this, "Permission denied", Toast.LENGTH_SHORT).show()
-                toggleButton.text = "Start Magnifier"
+                uiManager.toggleButton.text = "Start Magnifier"
             }
         }
     }
@@ -606,50 +150,6 @@ class MainActivity : AppCompatActivity() {
                 true
             }
             else -> super.onOptionsItemSelected(item)
-        }
-    }
-    
-    /**
-     * Completely exits the application, ensuring no background processes remain running
-     */
-    private fun exitAppCompletely() {
-        try {
-            Log.d("MainActivity", "Starting complete app exit process...")
-            
-            // 1. Stop the overlay service if running
-            if (isServiceRunning) {
-                Log.d("MainActivity", "Stopping OverlayService...")
-                val stopIntent = Intent(this, OverlayService::class.java).apply {
-                    action = "STOP_SERVICE"
-                }
-                startService(stopIntent)
-                isServiceRunning = false
-            }
-            
-            // 2. Stop all services explicitly
-            Log.d("MainActivity", "Stopping all services...")
-            stopService(Intent(this, OverlayService::class.java))
-            
-            // 3. Clear any pending capture data
-            OverlayService.setPendingCaptureData(Intent())
-            
-            // 4. Finish all activities in the task
-            Log.d("MainActivity", "Finishing all activities...")
-            finishAffinity()
-            
-            // 5. Force garbage collection to clean up resources
-            System.gc()
-            
-            // 6. Exit the process completely (this ensures no background threads remain)
-            Log.d("MainActivity", "Terminating process...")
-            android.os.Process.killProcess(android.os.Process.myPid())
-            System.exit(0)
-            
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Error during app exit", e)
-            // Fallback: force exit even if cleanup fails
-            android.os.Process.killProcess(android.os.Process.myPid())
-            System.exit(1)
         }
     }
 }
