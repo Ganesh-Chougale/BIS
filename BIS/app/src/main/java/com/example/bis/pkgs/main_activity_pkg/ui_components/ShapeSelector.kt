@@ -1,6 +1,7 @@
 package com.example.bis.pkgs.main_activity_pkg.ui_components
 
 import android.content.Context
+import android.util.Log
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.RadioButton
@@ -34,28 +35,42 @@ class ShapeSelector(private val context: Context) {
         
         shapeRadioGroup = RadioGroup(context).apply {
             orientation = RadioGroup.HORIZONTAL
-            
-            squareRadio = RadioButton(context).apply {
-                id = View.generateViewId()
-                text = "Square"
-                isChecked = true
-            }
-            addView(squareRadio)
-            
-            circleRadio = RadioButton(context).apply {
-                id = View.generateViewId()
-                text = "Circle"
-            }
-            addView(circleRadio)
-            
-            setOnCheckedChangeListener { _, checkedId ->
-                val shape = when (checkedId) {
-                    circleRadio.id -> MagnifierShape.CIRCLE
-                    else -> MagnifierShape.SQUARE
-                }
-                onShapeChanged(shape)
-            }
         }
+        
+        squareRadio = RadioButton(context).apply {
+            id = View.generateViewId()
+            text = "Square"
+            isChecked = true
+        }
+        shapeRadioGroup.addView(squareRadio)
+        
+        circleRadio = RadioButton(context).apply {
+            id = View.generateViewId()
+            text = "Circle"
+        }
+        shapeRadioGroup.addView(circleRadio)
+        
+        // Set listener AFTER adding radio buttons so IDs are properly assigned
+        shapeRadioGroup.setOnCheckedChangeListener { group, checkedId ->
+            Log.d("ShapeSelector", "CheckedChangeListener triggered: checkedId=$checkedId, circleRadio.id=${circleRadio.id}, squareRadio.id=${squareRadio.id}")
+            val shape = when (checkedId) {
+                circleRadio.id -> {
+                    Log.d("ShapeSelector", "Circle selected")
+                    MagnifierShape.CIRCLE
+                }
+                squareRadio.id -> {
+                    Log.d("ShapeSelector", "Square selected")
+                    MagnifierShape.SQUARE
+                }
+                else -> {
+                    Log.d("ShapeSelector", "Unknown shape selected: $checkedId")
+                    MagnifierShape.SQUARE
+                }
+            }
+            Log.d("ShapeSelector", "Shape changed to: $shape")
+            onShapeChanged(shape)
+        }
+        
         parent.addView(shapeRadioGroup)
     }
 }

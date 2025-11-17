@@ -12,8 +12,10 @@ object SliderFactory {
         config: SliderConfig,
         windowManager: WindowManager
     ): Slider {
-        // Always use SquareSlider for both shapes
-        return SquareSlider(context, config, windowManager)
+        return when (config.shape) {
+            SliderConfig.Shape.CIRCLE -> CircleSlider(context, config, windowManager)
+            SliderConfig.Shape.SQUARE -> SquareSlider(context, config, windowManager)
+        }
     }
     
     fun createSlider(

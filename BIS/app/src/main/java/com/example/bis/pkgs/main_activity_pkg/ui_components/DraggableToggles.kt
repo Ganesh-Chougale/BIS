@@ -25,12 +25,25 @@ class DraggableToggles(private val context: Context) {
         onWidgetDraggableChanged: (Boolean) -> Unit
     ) {
         // Input draggable
-        val inputLabel = TextView(context).apply {
-            text = "Input Window Draggable:"
-            textSize = 16f
+        // Output draggable
+        val row = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
             setPadding(0, 24, 0, 8)
         }
-        parent.addView(inputLabel)
+        
+        val inputContainer = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+        }
+        val inputLabel = TextView(context).apply {
+            text = "Input Window Draggable:"
+            textSize = 12f
+        }
+        inputContainer.addView(inputLabel)
         
         inputDraggableSwitch = Switch(context).apply {
             isChecked = false
@@ -40,15 +53,21 @@ class DraggableToggles(private val context: Context) {
                 onInputDraggableChanged(isChecked)
             }
         }
-        parent.addView(inputDraggableSwitch)
+        inputContainer.addView(inputDraggableSwitch)
         
-        // Output draggable
+        val outputContainer = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+        }
         val outputLabel = TextView(context).apply {
             text = "Output Window Draggable:"
-            textSize = 16f
-            setPadding(0, 24, 0, 8)
+            textSize = 12f
         }
-        parent.addView(outputLabel)
+        outputContainer.addView(outputLabel)
         
         outputDraggableSwitch = Switch(context).apply {
             isChecked = true
@@ -58,24 +77,12 @@ class DraggableToggles(private val context: Context) {
                 onOutputDraggableChanged(isChecked)
             }
         }
-        parent.addView(outputDraggableSwitch)
+        outputContainer.addView(outputDraggableSwitch)
+        
+        row.addView(inputContainer)
+        row.addView(outputContainer)
+        parent.addView(row)
         
         // Widget draggable
-        val widgetLabel = TextView(context).apply {
-            text = "Widget Draggable:"
-            textSize = 16f
-            setPadding(0, 24, 0, 8)
-        }
-        parent.addView(widgetLabel)
-        
-        widgetDraggableSwitch = Switch(context).apply {
-            isChecked = false
-            text = if (isChecked) "ON" else "OFF"
-            setOnCheckedChangeListener { _, isChecked ->
-                text = if (isChecked) "ON" else "OFF"
-                onWidgetDraggableChanged(isChecked)
-            }
-        }
-        parent.addView(widgetDraggableSwitch)
     }
 }

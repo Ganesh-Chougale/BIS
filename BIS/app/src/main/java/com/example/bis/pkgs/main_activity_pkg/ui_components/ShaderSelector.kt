@@ -28,21 +28,36 @@ class ShaderSelector(private val context: Context) {
         }
         parent.addView(shaderLabel)
         
-        val shaderFiles = try { context.assets.list("shaders") ?: arrayOf() } catch (e: Exception) { arrayOf() }
+        // Load shader files from assets, but hide the raw 2xbr.shader entry
+        // so we only expose a single user-friendly "Default 2xbr" option.
+        val shaderFiles = try {
+            (context.assets.list("shaders") ?: arrayOf())
+                .filterNot { it.equals("2xbr.shader", ignoreCase = true) }
+                .toTypedArray()
+        } catch (e: Exception) {
+            arrayOf()
+        }
         val shaders = arrayOf("Default 2xbr") + shaderFiles
         val adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, shaders)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         
         val shaderSpinner = Spinner(context).apply {
             this.adapter = adapter
+            val density = context.resources.displayMetrics.density
+            dropDownVerticalOffset = (8 * density).toInt()
+
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                    val shader = if (position == 0) "" else shaders[position]
+                    // Position 0 is the friendly "Default 2xbr" entry that
+                    // explicitly maps to the 2xbr.shader file. Other entries
+                    // map directly to their corresponding asset filenames.
+                    val shader = if (position == 0) "2xbr.shader" else shaders[position]
                     onShaderChanged(shader)
                 }
                 
                 override fun onNothingSelected(parent: AdapterView<*>?) {
-                    onShaderChanged("")
+                    // Fallback to the default 2xbr shader
+                    onShaderChanged("2xbr.shader")
                 }
             }
         }

@@ -60,7 +60,17 @@ class MainActivity : AppCompatActivity() {
         
         // Create UI with callbacks
         val scrollView = uiManager.createMainLayout(
-            onShapeChanged = { selectedShape = it },
+            onShapeChanged = { 
+                selectedShape = it
+                Log.d("MainActivity", "Shape changed to: $it, isRunning: ${serviceManager.isRunning()}")
+                // Update shape in running service if magnifier is active
+                if (serviceManager.isRunning()) {
+                    Log.d("MainActivity", "Calling OverlayService.updateShape with: $it")
+                    OverlayService.updateShape(this, it.name)
+                } else {
+                    Log.d("MainActivity", "Service not running, shape will be applied on next start")
+                }
+            },
             onSizeChanged = { selectedSize = it },
             onOutputSizeChanged = { selectedOutputSize = it },
             onInputDraggableChanged = { isInputDraggable = it },
@@ -72,7 +82,17 @@ class MainActivity : AppCompatActivity() {
             onMinZoomChanged = { minZoom = it },
             onMaxZoomChanged = { maxZoom = it },
             onColorFilterChanged = { colorFilterMode = it },
-            onShaderChanged = { selectedShader = it },
+            onShaderChanged = { 
+                selectedShader = it
+                Log.d("MainActivity", "Shader changed to: $it, isRunning: ${serviceManager.isRunning()}")
+                // Update shader in running service if magnifier is active
+                if (serviceManager.isRunning()) {
+                    Log.d("MainActivity", "Calling OverlayService.updateShader with: $it")
+                    OverlayService.updateShader(this, it)
+                } else {
+                    Log.d("MainActivity", "Service not running, shader will be applied on next start")
+                }
+            },
             onToggleClicked = { handleToggleButtonClick() },
             onAboutClicked = { buttonHandler.handleAboutButtonClick() },
             onExitClicked = { buttonHandler.handleExitButtonClick(serviceManager) }

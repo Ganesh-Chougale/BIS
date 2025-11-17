@@ -19,6 +19,7 @@ import com.example.bis.capture.ScreenCaptureManager
 import com.example.bis.config.MagnifierConfig
 import com.example.bis.config.MagnifierShape
 import com.example.bis.overlay.InputSelectorOverlay
+import com.example.bis.overlay.OutputWindowOverlay
 import com.example.bis.overlay.ToggleWidgetOverlay
 import com.example.bis.renderer.MagnifierSurfaceView
 import com.example.bis.slider.Slider
@@ -39,6 +40,24 @@ class OverlayService : Service() {
             pendingCaptureData = data
             Log.d(TAG, "pendingCaptureData stored: $pendingCaptureData")
         }
+
+        fun updateShader(context: android.content.Context, shaderName: String) {
+            Log.d(TAG, "updateShader called with: $shaderName")
+            val intent = Intent(context, OverlayService::class.java).apply {
+                action = "UPDATE_SHADER"
+                putExtra("SHADER", shaderName)
+            }
+            context.startService(intent)
+        }
+
+        fun updateShape(context: android.content.Context, shape: String) {
+            Log.d(TAG, "updateShape called with: $shape")
+            val intent = Intent(context, OverlayService::class.java).apply {
+                action = "UPDATE_SHAPE"
+                putExtra("SHAPE", shape)
+            }
+            context.startService(intent)
+        }
     }
 
     private val TAG = "OverlayService"
@@ -49,6 +68,7 @@ class OverlayService : Service() {
     private lateinit var inputSelectorOverlay: InputSelectorOverlay
     private lateinit var magnifierSurfaceView: MagnifierSurfaceView
     private lateinit var toggleWidgetOverlay: ToggleWidgetOverlay
+    private lateinit var outputWindowOverlay: OutputWindowOverlay
     private lateinit var zoomSlider: Slider
 
     override fun onCreate() {
@@ -130,6 +150,16 @@ class OverlayService : Service() {
                 layoutParams.x = config.outputPosition.x
                 layoutParams.y = config.outputPosition.y
                 this.layoutParams = layoutParams
+                
+                // Apply circular clipping if shape is CIRCLE
+                if (config.shape == MagnifierShape.CIRCLE) {
+                    clipToOutline = true
+                    outlineProvider = object : android.view.ViewOutlineProvider() {
+                        override fun getOutline(view: android.view.View, outline: android.graphics.Outline) {
+                            outline.setOval(0, 0, view.width, view.height)
+                        }
+                    }
+                }
             }
 
             toggleWidgetOverlay = ToggleWidgetOverlay(
@@ -156,7 +186,7 @@ class OverlayService : Service() {
             zoomSlider.show()
 
         } catch (e: Exception) {
-            Log.e(TAG, "CRITICAL ERROR creating overlays", e)
+            Log.e(TAG, "CRITICAL ERROR creating overlays: ${e.message}", e)
         }
     }
 
@@ -269,6 +299,51 @@ class OverlayService : Service() {
                     layoutParams.height = newSize
                     windowManager.updateViewLayout(magnifierSurfaceView, layoutParams)
                 }
+                return START_NOT_STICKY
+            }
+            "UPDATE_SHADER" -> {
+                if (::magnifierSurfaceView.isInitialized) {
+                    val shaderName = intent.getStringExtra("SHADER") ?: ""
+                    Log.d(TAG, "Updating shader to: $shaderName")
+                    magnifierSurfaceView.setShader(shaderName)
+                }
+                return START_NOT_STICKY
+            }
+            "UPDATE_SHAPE" -> {
+                Log.d(TAG, "UPDATE_SHAPE action received")
+                val shapeName = intent.getStringExtra("SHAPE") ?: MagnifierShape.SQUARE.name
+                Log.d(TAG, "Updating shape to: $shapeName")
+                config.shape = MagnifierShape.valueOf(shapeName)
+                Log.d(TAG, "Config shape updated to: ${config.shape}")
+                
+                // Apply circular clipping to magnifierSurfaceView if shape is CIRCLE
+                if (::magnifierSurfaceView.isInitialized) {
+                    if (config.shape == MagnifierShape.CIRCLE) {
+                        Log.d(TAG, "Applying circular clipping to magnifierSurfaceView")
+                        magnifierSurfaceView.clipToOutline = true
+                        magnifierSurfaceView.outlineProvider = object : android.view.ViewOutlineProvider() {
+                            override fun getOutline(view: android.view.View, outline: android.graphics.Outline) {
+                                outline.setOval(0, 0, view.width, view.height)
+                            }
+                        }
+                    } else {
+                        Log.d(TAG, "Removing circular clipping from magnifierSurfaceView")
+                        magnifierSurfaceView.clipToOutline = false
+                    }
+                }
+                
+                // Update slider with new shape
+                if (::zoomSlider.isInitialized) {
+                    Log.d(TAG, "Removing old zoom slider")
+                    zoomSlider.remove()
+                }
+                Log.d(TAG, "Creating new zoom slider with shape: ${config.shape}")
+                zoomSlider = SliderFactory.createSlider(this, createSliderConfig(), windowManager) { zoom ->
+                    config.setZoom(zoom)
+                }
+                zoomSlider.show()
+                Log.d(TAG, "Zoom slider shown")
+                
                 return START_NOT_STICKY
             }
         }

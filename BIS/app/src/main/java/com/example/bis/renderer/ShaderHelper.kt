@@ -19,12 +19,18 @@ object ShaderHelper {
      */
     fun loadShader(context: Context, fileName: String): Int {
         val shaderSources = parseShaderFile(context, "shaders/$fileName")
-        val vertexShaderSource = shaderSources["vertex"]
+        var vertexShaderSource = shaderSources["vertex"]
         val fragmentShaderSource = shaderSources["fragment"]
 
-        if (vertexShaderSource == null || fragmentShaderSource == null) {
-            Log.e(TAG, "Failed to parse shader file: $fileName")
+        if (fragmentShaderSource == null) {
+            Log.e(TAG, "Failed to parse shader file: $fileName - missing fragment shader")
             return 0
+        }
+
+        // Use default vertex shader if not provided
+        if (vertexShaderSource == null) {
+            Log.d(TAG, "No vertex shader found, using default")
+            vertexShaderSource = getDefaultVertexShader()
         }
 
         val vertexShader = compileShader(GLES20.GL_VERTEX_SHADER, vertexShaderSource)
@@ -37,9 +43,23 @@ object ShaderHelper {
         return linkProgram(vertexShader, fragmentShader)
     }
 
+    private fun getDefaultVertexShader(): String {
+        return """
+            attribute vec2 aPosition;
+            attribute vec2 aTexCoord;
+            varying vec2 vTexCoord;
+            
+            void main() {
+                gl_Position = vec4(aPosition, 0.0, 1.0);
+                vTexCoord = aTexCoord;
+            }
+        """.trimIndent()
+    }
+
     private fun parseShaderFile(context: Context, filePath: String): Map<String, String> {
         val sources = mutableMapOf<String, String>()
         try {
+            Log.d(TAG, "Attempting to load shader file: $filePath")
             context.assets.open(filePath).use { inputStream ->
                 InputStreamReader(inputStream).use { reader ->
                     val factory = XmlPullParserFactory.newInstance()
@@ -52,17 +72,20 @@ object ShaderHelper {
                         when (eventType) {
                             XmlPullParser.START_TAG -> {
                                 currentTag = parser.name
+                                Log.d(TAG, "Found tag: $currentTag")
                             }
                             XmlPullParser.TEXT -> {
                                 if (currentTag.equals("vertex", ignoreCase = true) || currentTag.equals("fragment", ignoreCase = true)) {
                                     if (!parser.text.trim().isEmpty()) {
                                         sources[currentTag] = parser.text
+                                        Log.d(TAG, "Loaded $currentTag shader: ${parser.text.length} chars")
                                     }
                                 }
                             }
                             XmlPullParser.CDSECT -> {
                                 if (currentTag == "vertex" || currentTag == "fragment") {
                                     sources[currentTag] = parser.text
+                                    Log.d(TAG, "Loaded $currentTag shader from CDATA: ${parser.text.length} chars")
                                 }
                             }
                         }
@@ -70,8 +93,9 @@ object ShaderHelper {
                     }
                 }
             }
+            Log.d(TAG, "Successfully parsed shader file. Vertex: ${sources.containsKey("vertex")}, Fragment: ${sources.containsKey("fragment")}")
         } catch (e: Exception) {
-            Log.e(TAG, "Error parsing shader file: $filePath", e) // Log the full exception
+            Log.e(TAG, "Error parsing shader file: $filePath - ${e.message}", e)
         }
         return sources
     }

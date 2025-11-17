@@ -115,10 +115,15 @@ class MagnifierRenderer(private val context: Context) : GLSurfaceView.Renderer {
         GLES20.glUniform1i(textureHandle, 0)
         Log.d(TAG, "Drawing frame with program $program and texture ID $textureId")
 
-        // Pass texture size to the shader
+        // Pass texture size and input/output sizes to the shader
         val textureSizeHandle = GLES20.glGetUniformLocation(program, "rubyTextureSize")
+        val inputSizeHandle = GLES20.glGetUniformLocation(program, "rubyInputSize")
+        val outputSizeHandle = GLES20.glGetUniformLocation(program, "rubyOutputSize")
+        
         currentBitmap?.let {
             GLES20.glUniform2f(textureSizeHandle, it.width.toFloat(), it.height.toFloat())
+            GLES20.glUniform2f(inputSizeHandle, it.width.toFloat(), it.height.toFloat())
+            GLES20.glUniform2f(outputSizeHandle, it.width.toFloat(), it.height.toFloat())
         }
 
         // Draw the square
