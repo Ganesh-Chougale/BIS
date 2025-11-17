@@ -15,6 +15,7 @@ class CrosshairToggles(private val context: Context) {
     lateinit var crosshairSwitch: Switch
     lateinit var outputCrosshairSwitch: Switch
     lateinit var outputCrosshairContainer: LinearLayout
+    lateinit var widgetDraggableSwitch: Switch
     
     /**
      * Create crosshair toggle UI
@@ -22,15 +23,10 @@ class CrosshairToggles(private val context: Context) {
     fun createUI(
         parent: LinearLayout,
         onCrosshairChanged: (Boolean) -> Unit,
-        onOutputCrosshairChanged: (Boolean) -> Unit
+        onOutputCrosshairChanged: (Boolean) -> Unit,
+        onWidgetDraggableChanged: (Boolean) -> Unit
     ) {
-        val crosshairLabel = TextView(context).apply {
-            text = "Show Crosshair in Input:"
-            textSize = 16f
-            setPadding(0, 24, 0, 8)
-        }
-        parent.addView(crosshairLabel)
-        
+        // Container for output crosshair controls (shown only when input crosshair is enabled)
         outputCrosshairContainer = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             visibility = View.GONE
@@ -53,7 +49,51 @@ class CrosshairToggles(private val context: Context) {
             }
         }
         outputCrosshairContainer.addView(outputCrosshairSwitch)
-        
+
+        // Inline row: widget draggable & show crosshair in input
+        val row = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, 24, 0, 8)
+        }
+
+        val widgetContainer = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+        }
+        val widgetLabel = TextView(context).apply {
+            text = "Widget Draggable:"
+            textSize = 12f
+        }
+        widgetContainer.addView(widgetLabel)
+
+        widgetDraggableSwitch = Switch(context).apply {
+            isChecked = false
+            text = if (isChecked) "ON" else "OFF"
+            setOnCheckedChangeListener { _, isChecked ->
+                text = if (isChecked) "ON" else "OFF"
+                onWidgetDraggableChanged(isChecked)
+            }
+        }
+        widgetContainer.addView(widgetDraggableSwitch)
+
+        val crosshairContainer = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+        }
+        val crosshairLabel = TextView(context).apply {
+            text = "Show Crosshair in Input:"
+            textSize = 12f
+        }
+        crosshairContainer.addView(crosshairLabel)
+
         crosshairSwitch = Switch(context).apply {
             isChecked = false
             text = if (isChecked) "ON" else "OFF"
@@ -68,7 +108,11 @@ class CrosshairToggles(private val context: Context) {
                 onCrosshairChanged(isChecked)
             }
         }
-        parent.addView(crosshairSwitch)
+        crosshairContainer.addView(crosshairSwitch)
+
+        row.addView(widgetContainer)
+        row.addView(crosshairContainer)
+        parent.addView(row)
         parent.addView(outputCrosshairContainer)
     }
 }

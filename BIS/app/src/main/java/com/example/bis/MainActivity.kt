@@ -78,7 +78,6 @@ class MainActivity : AppCompatActivity() {
             onWidgetDraggableChanged = { isWidgetDraggable = it },
             onCrosshairChanged = { showCrosshair = it },
             onOutputCrosshairChanged = { showOutputCrosshair = it },
-            onZoomSliderChanged = { showZoomSlider = it },
             onMinZoomChanged = { minZoom = it },
             onMaxZoomChanged = { maxZoom = it },
             onColorFilterChanged = { colorFilterMode = it },

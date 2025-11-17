@@ -4,7 +4,6 @@ import android.content.Context
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.SeekBar
-import android.widget.Switch
 import android.widget.TextView
 
 /**
@@ -13,7 +12,6 @@ import android.widget.TextView
  */
 class ZoomSlider(private val context: Context) {
     
-    lateinit var zoomSliderSwitch: Switch
     lateinit var minZoomLabel: TextView
     lateinit var minZoomSeekBar: SeekBar
     lateinit var maxZoomLabel: TextView
@@ -25,25 +23,12 @@ class ZoomSlider(private val context: Context) {
      */
     fun createUI(
         parent: LinearLayout,
-        onZoomSliderChanged: (Boolean) -> Unit,
         onMinZoomChanged: (Float) -> Unit,
         onMaxZoomChanged: (Float) -> Unit
     ) {
-        zoomSliderSwitch = Switch(context).apply {
-            isChecked = false
-            textSize = 16f
-            text = if (isChecked) "Show Zoom Slider ON" else "Show Zoom Slider OFF"
-            setOnCheckedChangeListener { _, isChecked ->
-                text = if (isChecked) "Show Zoom Slider ON" else "Show Zoom Slider OFF"
-                zoomRangeContainer.visibility = if (isChecked) View.VISIBLE else View.GONE
-                onZoomSliderChanged(isChecked)
-            }
-        }
-        parent.addView(zoomSliderSwitch)
-        
         zoomRangeContainer = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            visibility = View.GONE
+            visibility = View.VISIBLE
         }
         
         // Min zoom

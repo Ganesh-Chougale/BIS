@@ -38,7 +38,6 @@ class UI_MainActivity(private val context: Context) {
         onWidgetDraggableChanged: (Boolean) -> Unit,
         onCrosshairChanged: (Boolean) -> Unit,
         onOutputCrosshairChanged: (Boolean) -> Unit,
-        onZoomSliderChanged: (Boolean) -> Unit,
         onMinZoomChanged: (Float) -> Unit,
         onMaxZoomChanged: (Float) -> Unit,
         onColorFilterChanged: (String) -> Unit,
@@ -67,8 +66,8 @@ class UI_MainActivity(private val context: Context) {
         sizeSelector.createInputSizeUI(layout, onSizeChanged)
         sizeSelector.createOutputSizeUI(layout, onOutputSizeChanged)
         draggableToggles.createUI(layout, onInputDraggableChanged, onOutputDraggableChanged, onWidgetDraggableChanged)
-        crosshairToggles.createUI(layout, onCrosshairChanged, onOutputCrosshairChanged)
-        zoomSlider.createUI(layout, onZoomSliderChanged, onMinZoomChanged, onMaxZoomChanged)
+        crosshairToggles.createUI(layout, onCrosshairChanged, onOutputCrosshairChanged, onWidgetDraggableChanged)
+        zoomSlider.createUI(layout, onMinZoomChanged, onMaxZoomChanged)
         colorFilter.createUI(layout, onColorFilterChanged)
         shaderSelector.createUI(layout, onShaderChanged)
         buttonPanel.createUI(layout, onToggleClicked, onAboutClicked, onExitClicked)
