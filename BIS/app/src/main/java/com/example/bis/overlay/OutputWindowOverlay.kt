@@ -6,11 +6,11 @@ import android.graphics.*
 import android.graphics.drawable.GradientDrawable
 import android.view.*
 import android.widget.FrameLayout
-import android.widget.ImageView
 import android.widget.TextView
 import com.example.bis.config.MagnifierConfig
 import com.example.bis.config.MagnifierShape
 import com.example.bis.filter.ColorFilterProcessor
+import com.example.bis.renderer.MagnifierSurfaceView
 
 /**
  * Output window that displays the magnified view.
@@ -24,7 +24,8 @@ class OutputWindowOverlay(
     private val onTouched: (() -> Unit)? = null
 ) {
     private lateinit var overlayView: FrameLayout
-    private lateinit var magnifierImageView: ImageView
+    private lateinit var magnifierSurfaceView: MagnifierSurfaceView
+
     private lateinit var layoutParams: WindowManager.LayoutParams
     private var isAttached = false
     private var crosshairView: TextView? = null
@@ -67,29 +68,35 @@ class OutputWindowOverlay(
         
         // Update the background shape
         val drawable = GradientDrawable().apply {
-            setColor(Color.parseColor("#CC000000")) // 80% opacity black
-            setStroke(8, Color.parseColor("#4CAF50")) // Green border
-            
             if (config.shape == MagnifierShape.CIRCLE) {
+                // Circle: transparent fill with green ring only
+                setColor(Color.TRANSPARENT)
+                setStroke(8, Color.parseColor("#4CAF50"))
                 cornerRadius = (config.outputSize / 2).toFloat()
             } else {
+                // Square: semi-transparent dark background with green border
+                setColor(Color.parseColor("#CC000000"))
+                setStroke(8, Color.parseColor("#4CAF50"))
                 cornerRadius = 0f
             }
         }
         overlayView.background = drawable
         
-        // Update the ImageView clipping
-        if (config.shape == MagnifierShape.CIRCLE) {
-            magnifierImageView.clipToOutline = true
-            magnifierImageView.outlineProvider = object : ViewOutlineProvider() {
+        // Update the GLSurfaceView clipping and inform renderer which shape to draw
+        val isCircle = config.shape == MagnifierShape.CIRCLE
+        if (isCircle) {
+            magnifierSurfaceView.clipToOutline = true
+            magnifierSurfaceView.outlineProvider = object : ViewOutlineProvider() {
                 override fun getOutline(view: View, outline: Outline) {
                     outline.setOval(0, 0, view.width, view.height)
                 }
             }
         } else {
-            magnifierImageView.clipToOutline = false
-            magnifierImageView.outlineProvider = null
+            magnifierSurfaceView.clipToOutline = false
+            magnifierSurfaceView.outlineProvider = null
         }
+        // Renderer uses circle geometry when isCircle=true, quad when false
+        magnifierSurfaceView.setShape(isCircle)
         
         // Force redraw
         overlayView.invalidate()
@@ -129,19 +136,38 @@ class OutputWindowOverlay(
     fun updateMagnifiedView(bitmap: Bitmap) {
         if (!isAttached) return
         
-        // Apply color filter using ColorFilterProcessor
+        // Apply color filter using ColorFilterProcessor, then send to GL renderer
         val filteredBitmap = ColorFilterProcessor.applyFilter(bitmap, config.colorFilterMode)
-        
-        magnifierImageView.setImageBitmap(filteredBitmap)
+        magnifierSurfaceView.updateBitmap(filteredBitmap)
+    }
+
+    /**
+     * Update the active shader used by the GLSL renderer.
+     */
+    fun updateShader(shaderName: String) {
+        if (!isAttached) return
+        magnifierSurfaceView.setShader(shaderName)
     }
     
     /**
-     * Update the size of the output window based on zoom
-     * NOTE: Output window size is now fixed at 500px. Zoom changes the magnification, not window size.
+     * Update the size of the output window when config.outputSize changes.
+     * Keeps the overlay constrained to a square of outputSize × outputSize.
      */
     fun updateSize() {
-        // No-op: Output window size is fixed
-        // Zoom is handled by ScreenCaptureManager scaling the cropped bitmap
+        if (!isAttached) return
+
+        val newSize = config.outputSize
+
+        // Update the container view's layout params
+        overlayView.layoutParams = ViewGroup.LayoutParams(newSize, newSize)
+
+        // Update the WindowManager layout params so the system respects the new size
+        layoutParams.width = newSize
+        layoutParams.height = newSize
+        windowManager.updateViewLayout(overlayView, layoutParams)
+
+        // Ensure the GL surface fills the overlay's bounds
+        magnifierSurfaceView.layoutParams = FrameLayout.LayoutParams(newSize, newSize)
     }
     
     /**
@@ -153,27 +179,27 @@ class OutputWindowOverlay(
         overlayView = FrameLayout(context).apply {
             layoutParams = ViewGroup.LayoutParams(outputSize, outputSize)
             
-            // Semi-transparent dark background with thick green border for visibility
+            // Semi-transparent dark background for square; circle uses transparent fill with ring
             val drawable = GradientDrawable().apply {
-                setColor(Color.parseColor("#CC000000")) // 80% opacity black
-                setStroke(8, Color.parseColor("#4CAF50")) // Thicker border
-                
-                // Make it circular if shape is CIRCLE
                 if (config.shape == MagnifierShape.CIRCLE) {
+                    setColor(Color.TRANSPARENT)
+                    setStroke(8, Color.parseColor("#4CAF50"))
                     cornerRadius = (outputSize / 2).toFloat()
+                } else {
+                    setColor(Color.parseColor("#CC000000"))
+                    setStroke(8, Color.parseColor("#4CAF50"))
                 }
             }
             background = drawable
             
-            // ImageView to display magnified content
-            magnifierImageView = ImageView(context).apply {
+            // GLSurfaceView to display magnified content with shaders
+            magnifierSurfaceView = MagnifierSurfaceView(context).apply {
                 layoutParams = FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
                     FrameLayout.LayoutParams.MATCH_PARENT
                 )
-                scaleType = ImageView.ScaleType.FIT_XY
                 
-                // Clip to circle if shape is CIRCLE
+                // Clip to circle and configure renderer shape if initial shape is CIRCLE
                 if (config.shape == MagnifierShape.CIRCLE) {
                     clipToOutline = true
                     outlineProvider = object : ViewOutlineProvider() {
@@ -181,9 +207,12 @@ class OutputWindowOverlay(
                             outline.setOval(0, 0, view.width, view.height)
                         }
                     }
+                    setShape(true)
+                } else {
+                    setShape(false)
                 }
             }
-            addView(magnifierImageView)
+            addView(magnifierSurfaceView)
             
             // Add crosshair overlay if enabled
             if (config.showOutputCrosshair) {
@@ -196,10 +225,10 @@ class OutputWindowOverlay(
             }
         }
         
-        // Window layout parameters
+        // Window layout parameters (constrained to outputSize square)
         layoutParams = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            outputSize,
+            outputSize,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT

@@ -78,7 +78,9 @@ class MagnifierRenderer(private val context: Context) : GLSurfaceView.Renderer {
     }
     
     /**
-     * Generate texture coordinates for circular mapping
+     * Generate texture coordinates for circular mapping.
+     * V is flipped to match the orientation used by the square quad
+     * (so circle and square outputs are not mirrored relative to each other).
      */
     private fun generateCircleTextureCoords(segments: Int): FloatArray {
         val coords = mutableListOf<Float>()
@@ -91,7 +93,8 @@ class MagnifierRenderer(private val context: Context) : GLSurfaceView.Renderer {
             val angle = 2 * Math.PI * i / segments
             // Map circle to texture coordinates (0,0 to 1,1)
             val u = (Math.cos(angle) * 0.5f + 0.5f).toFloat()
-            val v = (Math.sin(angle) * 0.5f + 0.5f).toFloat()
+            // Flip V so orientation matches the quad
+            val v = (-Math.sin(angle) * 0.5f + 0.5f).toFloat()
             coords.add(u)
             coords.add(v)
         }
@@ -100,12 +103,17 @@ class MagnifierRenderer(private val context: Context) : GLSurfaceView.Renderer {
     }
     
     /**
-     * Update vertex and texture buffers based on current shape
+     * Update vertex and texture buffers.
+     *
+     * Rendering always uses the quad geometry with standard texture
+     * coordinates; circle vs square appearance is handled by the
+     * overlay via clipping, so we keep geometry simple and avoid
+     * orientation differences between shapes.
      */
     private fun updateGeometry() {
-        val vertices = if (isCircular) circleVertices else squareVertices
-        val texCoords = if (isCircular) circleTextureCoords else textureCoords
-        
+        val vertices = squareVertices
+        val texCoords = textureCoords
+
         vertexBuffer = ByteBuffer.allocateDirect(vertices.size * 4)
             .order(ByteOrder.nativeOrder()).asFloatBuffer()
         vertexBuffer.put(vertices).position(0)
@@ -231,15 +239,9 @@ class MagnifierRenderer(private val context: Context) : GLSurfaceView.Renderer {
             GLES20.glUniform2f(outputSizeHandle, it.width.toFloat(), it.height.toFloat())
         }
 
-        // Draw the shape
-        Log.d(TAG, "Calling glDrawArrays - isCircular: $isCircular")
-        if (isCircular) {
-            // Draw circle as triangle fan
-            GLES20.glDrawArrays(GLES20.GL_TRIANGLE_FAN, 0, circleVertices.size / 2)
-        } else {
-            // Draw square as triangle strip
-            GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
-        }
+        // Draw the quad (shape clipping is handled at the View/overlay level)
+        Log.d(TAG, "Calling glDrawArrays as quad strip")
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
         
         // Check for OpenGL errors
         val error = GLES20.glGetError()

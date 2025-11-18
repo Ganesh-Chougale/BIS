@@ -21,7 +21,6 @@ import com.example.bis.config.MagnifierShape
 import com.example.bis.overlay.InputSelectorOverlay
 import com.example.bis.overlay.OutputWindowOverlay
 import com.example.bis.overlay.ToggleWidgetOverlay
-import com.example.bis.renderer.MagnifierSurfaceView
 import com.example.bis.slider.Slider
 import com.example.bis.slider.SliderFactory
 import com.example.bis.slider.model.SliderConfig
@@ -67,7 +66,6 @@ class OverlayService : Service() {
     private lateinit var screenCaptureManager: ScreenCaptureManager
     private lateinit var inputSelectorOverlay: InputSelectorOverlay
     private lateinit var outputWindowOverlay: OutputWindowOverlay
-    private lateinit var magnifierSurfaceView: MagnifierSurfaceView
     private lateinit var toggleWidgetOverlay: ToggleWidgetOverlay
     private lateinit var zoomSlider: Slider
 
@@ -267,20 +265,21 @@ class OverlayService : Service() {
                 return START_NOT_STICKY
             }
             "UPDATE_OUTPUT_SIZE" -> {
-                if (::magnifierSurfaceView.isInitialized) {
+                if (::outputWindowOverlay.isInitialized) {
                     val newSize = intent.getIntExtra("OUTPUT_SIZE", config.outputSize)
                     config.outputSize = newSize
-                    val layoutParams = magnifierSurfaceView.layoutParams as WindowManager.LayoutParams
-                    layoutParams.width = newSize
-                    layoutParams.height = newSize
-                    windowManager.updateViewLayout(magnifierSurfaceView, layoutParams)
+                    outputWindowOverlay.updateSize()
                 }
                 return START_NOT_STICKY
             }
             "UPDATE_SHADER" -> {
                 val shaderName = intent.getStringExtra("SHADER") ?: ""
-                Log.d(TAG, "UPDATE_SHADER received: $shaderName (ignored - shaders not supported on ImageView output)")
-                // Shaders are GL-only and OutputWindowOverlay uses ImageView, so shader updates are ignored
+                Log.d(TAG, "UPDATE_SHADER received: $shaderName")
+                if (::outputWindowOverlay.isInitialized) {
+                    outputWindowOverlay.updateShader(shaderName)
+                } else {
+                    Log.d(TAG, "UPDATE_SHADER received but outputWindowOverlay is not initialized yet")
+                }
                 return START_NOT_STICKY
             }
             "UPDATE_SHAPE" -> {
@@ -363,6 +362,11 @@ class OverlayService : Service() {
                     toggleWidgetOverlay.updateIcon(true)
                 }
 
+                if (shaderName.isNotEmpty() && ::outputWindowOverlay.isInitialized) {
+                    Log.d(TAG, "Applying initial shader from START_CAPTURE: $shaderName")
+                    outputWindowOverlay.updateShader(shaderName)
+                }
+
                 screenCaptureManager.startCapture(resultCode, data)
             }
         }
@@ -405,8 +409,9 @@ class OverlayService : Service() {
                 inputSelectorOverlay.hide()
                 inputSelectorOverlay.remove()
             }
-            if (::magnifierSurfaceView.isInitialized) {
-                windowManager.removeView(magnifierSurfaceView)
+            if (::outputWindowOverlay.isInitialized) {
+                outputWindowOverlay.hide()
+                outputWindowOverlay.remove()
             }
             if (::toggleWidgetOverlay.isInitialized) {
                 toggleWidgetOverlay.remove()
