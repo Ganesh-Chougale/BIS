@@ -39,22 +39,60 @@ class OutputWindowOverlay(
      * Create and show the output window overlay
      */
     fun show() {
-        if (isAttached) {
-            android.util.Log.d("OutputWindowOverlay", "Already attached, skipping show()")
-            return
-        }
-        
         try {
-            android.util.Log.d("OutputWindowOverlay", "Creating view...")
-            createView()
-            android.util.Log.d("OutputWindowOverlay", "Adding view to window manager...")
-            windowManager.addView(overlayView, layoutParams)
-            isAttached = true
-            android.util.Log.d("OutputWindowOverlay", "Successfully shown")
+            if (isAttached) {
+                // If already attached, update the existing view
+                updateShape()
+                android.util.Log.d("OutputWindowOverlay", "Updated existing view")
+            } else {
+                // Otherwise create and show new view
+                android.util.Log.d("OutputWindowOverlay", "Creating view...")
+                createView()
+                android.util.Log.d("OutputWindowOverlay", "Adding view to window manager...")
+                windowManager.addView(overlayView, layoutParams)
+                isAttached = true
+                android.util.Log.d("OutputWindowOverlay", "Successfully shown")
+            }
         } catch (e: Exception) {
-            android.util.Log.e("OutputWindowOverlay", "Failed to show overlay", e)
+            android.util.Log.e("OutputWindowOverlay", "Failed to show/update overlay", e)
             throw e  // Re-throw to let caller handle
         }
+    }
+    
+    /**
+     * Update the shape of the output window
+     */
+    fun updateShape() {
+        if (!isAttached) return
+        
+        // Update the background shape
+        val drawable = GradientDrawable().apply {
+            setColor(Color.parseColor("#CC000000")) // 80% opacity black
+            setStroke(8, Color.parseColor("#4CAF50")) // Green border
+            
+            if (config.shape == MagnifierShape.CIRCLE) {
+                cornerRadius = (config.outputSize / 2).toFloat()
+            } else {
+                cornerRadius = 0f
+            }
+        }
+        overlayView.background = drawable
+        
+        // Update the ImageView clipping
+        if (config.shape == MagnifierShape.CIRCLE) {
+            magnifierImageView.clipToOutline = true
+            magnifierImageView.outlineProvider = object : ViewOutlineProvider() {
+                override fun getOutline(view: View, outline: Outline) {
+                    outline.setOval(0, 0, view.width, view.height)
+                }
+            }
+        } else {
+            magnifierImageView.clipToOutline = false
+            magnifierImageView.outlineProvider = null
+        }
+        
+        // Force redraw
+        overlayView.invalidate()
     }
     
     /**

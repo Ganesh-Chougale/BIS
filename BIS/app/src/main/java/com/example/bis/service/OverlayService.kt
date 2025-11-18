@@ -66,9 +66,9 @@ class OverlayService : Service() {
     private lateinit var windowManager: WindowManager
     private lateinit var screenCaptureManager: ScreenCaptureManager
     private lateinit var inputSelectorOverlay: InputSelectorOverlay
+    private lateinit var outputWindowOverlay: OutputWindowOverlay
     private lateinit var magnifierSurfaceView: MagnifierSurfaceView
     private lateinit var toggleWidgetOverlay: ToggleWidgetOverlay
-    private lateinit var outputWindowOverlay: OutputWindowOverlay
     private lateinit var zoomSlider: Slider
 
     override fun onCreate() {
@@ -110,8 +110,8 @@ class OverlayService : Service() {
             context = this,
             config = config,
             onFrameAvailable = { bitmap ->
-                if (::magnifierSurfaceView.isInitialized) {
-                    magnifierSurfaceView.updateBitmap(bitmap)
+                if (::outputWindowOverlay.isInitialized) {
+                    outputWindowOverlay.updateMagnifiedView(bitmap)
                 }
             }
         )
@@ -130,37 +130,13 @@ class OverlayService : Service() {
         try {
             inputSelectorOverlay = InputSelectorOverlay(this, config, windowManager)
 
-            magnifierSurfaceView = MagnifierSurfaceView(this).apply {
-                if (config.isOutputDraggable) {
-                    this.setOnTouchListener(OutputTouchListener())
-                }
-                val layoutParams = WindowManager.LayoutParams(
-                    config.outputSize,
-                    config.outputSize,
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                    } else {
-                        @Suppress("DEPRECATION")
-                        WindowManager.LayoutParams.TYPE_PHONE
-                    },
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
-                    android.graphics.PixelFormat.TRANSLUCENT
-                )
-                layoutParams.gravity = android.view.Gravity.TOP or android.view.Gravity.START
-                layoutParams.x = config.outputPosition.x
-                layoutParams.y = config.outputPosition.y
-                this.layoutParams = layoutParams
-                
-                // Apply circular clipping if shape is CIRCLE
-                if (config.shape == MagnifierShape.CIRCLE) {
-                    clipToOutline = true
-                    outlineProvider = object : android.view.ViewOutlineProvider() {
-                        override fun getOutline(view: android.view.View, outline: android.graphics.Outline) {
-                            outline.setOval(0, 0, view.width, view.height)
-                        }
-                    }
-                }
-            }
+            outputWindowOverlay = OutputWindowOverlay(
+                context = this,
+                config = config,
+                windowManager = windowManager,
+                onPositionChanged = { onOutputPositionChanged() },
+                onTouched = { onOutputWindowTouched() }
+            )
 
             toggleWidgetOverlay = ToggleWidgetOverlay(
                 context = this,
@@ -181,7 +157,7 @@ class OverlayService : Service() {
             )
 
             inputSelectorOverlay.show()
-            windowManager.addView(magnifierSurfaceView, magnifierSurfaceView.layoutParams)
+            outputWindowOverlay.show()
             toggleWidgetOverlay.show()
             zoomSlider.show()
 
@@ -195,11 +171,11 @@ class OverlayService : Service() {
 
         if (config.isMagnifying) {
             inputSelectorOverlay.reveal()
-            magnifierSurfaceView.visibility = View.VISIBLE
+            outputWindowOverlay.reveal()
             zoomSlider.setVisibility(false)
         } else {
             inputSelectorOverlay.hide()
-            magnifierSurfaceView.visibility = View.GONE
+            outputWindowOverlay.hide()
             zoomSlider.setVisibility(false)
         }
 
@@ -230,12 +206,12 @@ class OverlayService : Service() {
         private var initialY = 0
         private var initialTouchX = 0f
         private var initialTouchY = 0f
+        private lateinit var layoutParams: WindowManager.LayoutParams
 
-        override fun onTouch(v: View?, event: MotionEvent): Boolean {
-            val layoutParams = v?.layoutParams as? WindowManager.LayoutParams ?: return false
-
+        override fun onTouch(v: View, event: MotionEvent): Boolean {
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
+                    layoutParams = v.layoutParams as WindowManager.LayoutParams
                     initialX = layoutParams.x
                     initialY = layoutParams.y
                     initialTouchX = event.rawX
@@ -302,11 +278,9 @@ class OverlayService : Service() {
                 return START_NOT_STICKY
             }
             "UPDATE_SHADER" -> {
-                if (::magnifierSurfaceView.isInitialized) {
-                    val shaderName = intent.getStringExtra("SHADER") ?: ""
-                    Log.d(TAG, "Updating shader to: $shaderName")
-                    magnifierSurfaceView.setShader(shaderName)
-                }
+                val shaderName = intent.getStringExtra("SHADER") ?: ""
+                Log.d(TAG, "UPDATE_SHADER received: $shaderName (ignored - shaders not supported on ImageView output)")
+                // Shaders are GL-only and OutputWindowOverlay uses ImageView, so shader updates are ignored
                 return START_NOT_STICKY
             }
             "UPDATE_SHAPE" -> {
@@ -316,20 +290,10 @@ class OverlayService : Service() {
                 config.shape = MagnifierShape.valueOf(shapeName)
                 Log.d(TAG, "Config shape updated to: ${config.shape}")
                 
-                // Apply circular clipping to magnifierSurfaceView if shape is CIRCLE
-                if (::magnifierSurfaceView.isInitialized) {
-                    if (config.shape == MagnifierShape.CIRCLE) {
-                        Log.d(TAG, "Applying circular clipping to magnifierSurfaceView")
-                        magnifierSurfaceView.clipToOutline = true
-                        magnifierSurfaceView.outlineProvider = object : android.view.ViewOutlineProvider() {
-                            override fun getOutline(view: android.view.View, outline: android.graphics.Outline) {
-                                outline.setOval(0, 0, view.width, view.height)
-                            }
-                        }
-                    } else {
-                        Log.d(TAG, "Removing circular clipping from magnifierSurfaceView")
-                        magnifierSurfaceView.clipToOutline = false
-                    }
+                // Update shape in outputWindowOverlay
+                if (::outputWindowOverlay.isInitialized) {
+                    Log.d(TAG, "Updating outputWindowOverlay shape to: ${config.shape}")
+                    outputWindowOverlay.updateShape()
                 }
                 
                 // Update slider with new shape
@@ -395,10 +359,7 @@ class OverlayService : Service() {
 
                     config.isMagnifying = true
                     inputSelectorOverlay.reveal()
-                    magnifierSurfaceView.visibility = View.VISIBLE
-                    if (shaderName.isNotEmpty()) {
-                        magnifierSurfaceView.setShader(shaderName) // Set initial shader only if not empty
-                    }
+                    outputWindowOverlay.reveal()
                     toggleWidgetOverlay.updateIcon(true)
                 }
 
